@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import { FHE, euint32, externalEuint32 } from "@fhevm/solidity/lib/FHE.sol";
 import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
 
+// IDEA: usar ZKPs para verificar que lo que me da el usuario es un numero entre 0 y 1 (cuando esto sea un voting system
+
 
 // inherits from SepoliaConfig to enable fhEVM support
 contract FHECounter is SepoliaConfig {
@@ -33,13 +35,5 @@ contract FHECounter is SepoliaConfig {
     FHE.allow(_count, msg.sender);
 
   }
-
-//   /// @notice Decrements the counter by a specific value
-//   function decrement(uint32 value) external {
-//     require(_count >= value, "Counter: cannot decrement below zero");
-//     _count -= value;
-//   }
-
-
 
 }

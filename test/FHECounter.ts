@@ -70,14 +70,29 @@ describe("FHECounter", function () {
 
     });
 
-  //   it("decrement the counter by 1", async function () {
-  //     // First increment, count becomes 1
-  //     let tx = await counterContract.connect(signers.alice).increment();
-  //     await tx.wait();
-  //     // Then decrement, count goes back to 0
-  //     tx = await counterContract.connect(signers.alice).decrement(1);
-  //     await tx.wait();
-  //     const count = await counterContract.getCount();
-  //     expect(count).to.eq(0);
-  //   });
+    it("decrement the counter by 1", async function () {
+      const clearOne = 1;
+      const encryptedOne = await fhevm
+        .createEncryptedInput(fheCounterContractAddress, signers.alice.address)
+        .add32(clearOne)
+        .encrypt();
+      
+        let tx = await fheCounterContract.connect(signers.alice).increment(encryptedOne.handles[0], encryptedOne.inputProof);
+        await tx.wait();
+
+        tx = await fheCounterContract.connect(signers.alice).decrement(encryptedOne.handles[0], encryptedOne.inputProof);
+        await tx.wait;
+
+        const encryptedCountAfterDec = await fheCounterContract.getCount();
+        const clearCountAfterDec = await fhevm.userDecryptEuint(
+          FhevmType.euint32,
+          encryptedCountAfterDec,
+          fheCounterContractAddress,
+          signers.alice
+        );
+
+        expect(clearCountAfterDec).to.eq(0);
+        
+    });
+
 });
