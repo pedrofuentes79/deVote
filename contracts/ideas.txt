@@ -1,0 +1,6 @@
+- Una idea para usar Zero Knowledge Proofs (no tengo idea de como implementarla igual...) es que el usuario mande una ZKP para validar que está en la lista de votantes válidos.
+    - o que alguna autoridad (ej el gobierno) pueda firmar algo sin saber para quién es (Blind Signatures) (creo que algo de esto vimos en clase, mencionado al pasar)
+
+- Ojo, si no guardamos las identidades como permitimos double voting?
+
+- Podemos agregar commitments para que los votos sean mas verificables. Que cualquier usuario pueda chequear que su voto fue "Counted-as-Cast"

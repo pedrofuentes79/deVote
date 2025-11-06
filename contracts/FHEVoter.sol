@@ -11,6 +11,7 @@ contract FHEVoter is SepoliaConfig {
     euint32 private encryptedConstantZero;
     mapping(address => ebool) private individualVotes;
     address[] private voters;
+    mapping(address => bool) private hasVoted;
     uint32 private totalVotes; // =0 by default. It is only used when the owner calls "decryptCount"
     address private owner;
     bool private votesCounted;
@@ -29,7 +30,11 @@ contract FHEVoter is SepoliaConfig {
         ebool yesOrNo = FHE.fromExternal(externalYesOrNo, proof);
 
         individualVotes[msg.sender] = yesOrNo;
-        voters.push(msg.sender);
+        if (!hasVoted[msg.sender]) {
+            voters.push(msg.sender);
+            hasVoted[msg.sender] = true;
+        }
+
         FHE.allow(individualVotes[msg.sender], msg.sender); // allows the sender to decrypt ITS VOTE
         FHE.allowThis(individualVotes[msg.sender]); // allows the contract to use this value too
     }
