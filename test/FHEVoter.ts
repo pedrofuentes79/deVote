@@ -109,13 +109,9 @@ describe("FHEVoter", function () {
         tx = await fheVoterContract.requestDecryption()
         await tx.wait();
 
-        // We use the FHEVM Hardhat plugin to simulate the asynchronous onchain
-        // public decryption
-        const fhevmEnvironment: HardhatFhevmRuntimeEnvironment = hre.fhevm;
-
         // Use the built-in `awaitDecryptionOracle` helper to wait for the FHEVM public decryption oracle
         // to complete all pending Solidity public decryption requests.
-        await fhevmEnvironment.awaitDecryptionOracle();
+        await fhevm.awaitDecryptionOracle();
 
         const clearCount = await fheVoterContract.connect(signers.deployer).getDecryptedCount();
 
