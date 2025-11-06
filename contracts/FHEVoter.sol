@@ -6,49 +6,60 @@ import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 
 // inherits from SepoliaConfig to enable fhEVM support
 contract FHEVoter is SepoliaConfig {
-    euint32 private _count;
-    euint32 private _constantOne;
-    euint32 private _constantZero;
-    mapping(address => ebool) private _individualVotes;
-    uint32 private _totalVotes; // =0 by default. It is only used when the owner calls "decryptCount"
-    address private _owner;
+    euint32 private encryptedCount;
+    euint32 private encryptedConstantOne;
+    euint32 private encryptedConstantZero;
+    mapping(address => ebool) private individualVotes;
+    address[] private voters;
+    uint32 private totalVotes; // =0 by default. It is only used when the owner calls "decryptCount"
+    address private owner;
+    bool private votesCounted;
 
 
     constructor() {
-        _owner = msg.sender;
-        _constantOne = FHE.asEuint32(1);
-        _constantZero = FHE.asEuint32(0);
-        FHE.allowThis(_constantOne);
-        FHE.allowThis(_constantZero);
+        owner = msg.sender;
+        encryptedConstantOne = FHE.asEuint32(1);
+        encryptedConstantZero = FHE.asEuint32(0);
+        FHE.allowThis(encryptedConstantOne);
+        FHE.allowThis(encryptedConstantZero);
     }
 
     // using a boolean allows us to ensure what we add is always 0 or 1
     function vote(externalEbool externalYesOrNo, bytes calldata proof) external {
         ebool yesOrNo = FHE.fromExternal(externalYesOrNo, proof);
-        euint32 voteToAdd = FHE.select(yesOrNo, _constantOne, _constantZero);
 
-        _individualVotes[msg.sender] = yesOrNo;
-        FHE.allow(_individualVotes[msg.sender], msg.sender); // allows the sender to decrypt ITS VOTE
-        FHE.allowThis(_individualVotes[msg.sender]); // allows the contract to use this value too
-
-        _count = FHE.add(_count, voteToAdd);
-
-        FHE.allowThis(_count);
+        individualVotes[msg.sender] = yesOrNo;
+        voters.push(msg.sender);
+        FHE.allow(individualVotes[msg.sender], msg.sender); // allows the sender to decrypt ITS VOTE
+        FHE.allowThis(individualVotes[msg.sender]); // allows the contract to use this value too
     }
 
     function getCount() external view returns (euint32) {
-        return _count;
+        return encryptedCount;
     }
 
     function getMyVote() external view returns (ebool) {
-        return _individualVotes[msg.sender];
+        return individualVotes[msg.sender];
+    }
+
+    function countVotes() private {
+        require(msg.sender == owner, "Only owner can count the votes");
+        if (votesCounted) return;
+
+        for (uint256 i = 0; i < voters.length; i++) {
+            euint32 voteToAdd = FHE.select(individualVotes[voters[i]], encryptedConstantOne, encryptedConstantZero);
+            encryptedCount = FHE.add(encryptedCount, voteToAdd);
+            FHE.allowThis(encryptedCount);
+        }
+        votesCounted = true;
     }
 
     function requestDecryption() external {
-        require(msg.sender == _owner, "Only owner can decrypt the count");
+        require(msg.sender == owner, "Only owner can decrypt the count");
+        countVotes();
 
         bytes32[] memory cypherTexts = new bytes32[](1);
-        cypherTexts[0] = FHE.toBytes32(_count);
+        cypherTexts[0] = FHE.toBytes32(encryptedCount);
             FHE.requestDecryption(
             // the list of encrypted values we want to publc decrypt
             cypherTexts,
@@ -58,7 +69,7 @@ contract FHEVoter is SepoliaConfig {
     }
 
     function getDecryptedCount() external view returns (uint32) {
-        return _totalVotes;
+        return totalVotes;
     }
 
     function callbackDecryptSingleUint32(uint256 requestID, bytes memory cleartexts, bytes memory decryptionProof) external {
@@ -87,7 +98,7 @@ contract FHEVoter is SepoliaConfig {
         FHE.checkSignatures(requestID, cleartexts, decryptionProof);
 
         (uint32 decryptedInput) = abi.decode(cleartexts, (uint32));
-        _totalVotes = decryptedInput;
+        totalVotes = decryptedInput;
     }
 
 
