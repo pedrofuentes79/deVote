@@ -10,12 +10,20 @@ contract FHEVoter is SepoliaConfig {
     euint32 private encryptedConstantOne;
     euint32 private encryptedConstantZero;
     mapping(address => ebool) private individualVotes;
+
+    // it'd be better to not have this... since it's quite easy for someone compromising the contract
+    // to get the list of voters. the individualVotes at least requires you to check every address...
+    // we can remove it by having a "live tally" model, only keeping `individualVotes`.
+    // when someone votes for the second (or more) time, we substract their previous vote from the total
+    // and we then add the new vote.
     address[] private voters;
+
     mapping(address => bool) private hasVoted;
     uint32 private totalVotes; // =0 by default. It is only used when the owner calls "decryptCount"
     address private owner;
     bool private votesCounted;
 
+    bool private isVotingOpen;
 
     constructor() {
         owner = msg.sender;
@@ -23,10 +31,30 @@ contract FHEVoter is SepoliaConfig {
         encryptedConstantZero = FHE.asEuint32(0);
         FHE.allowThis(encryptedConstantOne);
         FHE.allowThis(encryptedConstantZero);
+        isVotingOpen = true;
+    }
+
+    modifier onlyWhenVotingOpen() {
+        require(isVotingOpen, "Voting is not open");
+        _;
+    }
+
+    modifier onlyWhenVotingClosed() {
+        require(!isVotingOpen, "Voting is open");
+        _;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+
+    function closeVoting() external onlyWhenVotingOpen onlyOwner{
+        isVotingOpen = false;
     }
 
     // using a boolean allows us to ensure what we add is always 0 or 1
-    function vote(externalEbool externalYesOrNo, bytes calldata proof) external {
+    function vote(externalEbool externalYesOrNo, bytes calldata proof) external onlyWhenVotingOpen {
         ebool yesOrNo = FHE.fromExternal(externalYesOrNo, proof);
 
         individualVotes[msg.sender] = yesOrNo;
@@ -39,7 +67,7 @@ contract FHEVoter is SepoliaConfig {
         FHE.allowThis(individualVotes[msg.sender]); // allows the contract to use this value too
     }
 
-    function getCount() external view returns (euint32) {
+    function getCount() external onlyWhenVotingClosed view returns (euint32) {
         return encryptedCount;
     }
 
@@ -47,8 +75,7 @@ contract FHEVoter is SepoliaConfig {
         return individualVotes[msg.sender];
     }
 
-    function countVotes() private {
-        require(msg.sender == owner, "Only owner can count the votes");
+    function countVotes() private onlyWhenVotingClosed onlyOwner {
         if (votesCounted) return;
 
         for (uint256 i = 0; i < voters.length; i++) {
@@ -59,8 +86,7 @@ contract FHEVoter is SepoliaConfig {
         votesCounted = true;
     }
 
-    function requestDecryption() external {
-        require(msg.sender == owner, "Only owner can decrypt the count");
+    function requestDecryption() external onlyWhenVotingClosed onlyOwner {
         countVotes();
 
         bytes32[] memory cypherTexts = new bytes32[](1);
@@ -73,11 +99,15 @@ contract FHEVoter is SepoliaConfig {
         );
     }
 
-    function getDecryptedCount() external view returns (uint32) {
+    function getDecryptedCount() external onlyWhenVotingClosed view returns (uint32) {
         return totalVotes;
     }
 
-    function callbackDecryptSingleUint32(uint256 requestID, bytes memory cleartexts, bytes memory decryptionProof) external {
+    function callbackDecryptSingleUint32(
+        uint256 requestID, 
+        bytes memory cleartexts, 
+        bytes memory decryptionProof
+    ) external {
         // The `cleartexts` argument is an ABI encoding of the decrypted values associated to the
         // handles (using `abi.encode`). 
         // 

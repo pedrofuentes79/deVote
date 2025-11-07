@@ -28,6 +28,9 @@ async function requestDecryptionAndGetCount(
   fheVoterContract: FHEVoter, 
   deployer: HardhatEthersSigner
 ): Promise<bigint> {
+  
+  await fheVoterContract.connect(deployer).closeVoting();
+
   const tx = await fheVoterContract.connect(deployer).requestDecryption();
   await tx.wait();
 
@@ -142,15 +145,32 @@ describe("FHEVoter", function () {
         tx = await fheVoterContract.connect(signers.bob).vote(bobVote.handles[0], bobVote.inputProof);
         await tx.wait();
 
+        // owner closes voting
+        await fheVoterContract.connect(signers.deployer).closeVoting();
+
         // Alice tries to request decryption
         await expect(
             fheVoterContract.connect(signers.alice).requestDecryption()
-        ).to.be.revertedWith("Only owner can decrypt the count");
+        ).to.be.revertedWith("Only owner can call this function");
 
         // Bob tries to request decryption
         await expect(
             fheVoterContract.connect(signers.bob).requestDecryption()
-        ).to.be.revertedWith("Only owner can decrypt the count");
+        ).to.be.revertedWith("Only owner can call this function");
+    });
+
+    it("does not allow to vote when voting is closed", async function () {
+        const aliceVote = await fhevm
+            .createEncryptedInput(fheVoterContractAddress, signers.alice.address)
+            .addBool(true)
+            .encrypt();
+
+        // owner closes voting
+        await fheVoterContract.connect(signers.deployer).closeVoting();
+
+        await expect(
+            fheVoterContract.connect(signers.alice).vote(aliceVote.handles[0], aliceVote.inputProof)
+        ).to.be.revertedWith("Voting is not open");
     });
     
     it("allows to vote twice and only the last vote counts", async function () {
