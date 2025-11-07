@@ -22,8 +22,9 @@ contract FHEVoter is SepoliaConfig {
     uint32 private totalVotes; // =0 by default. It is only used when the owner calls "decryptCount"
     address private owner;
     bool private votesCounted;
-
     bool private isVotingOpen;
+
+    event CountDecrypted(uint32 count);
 
     constructor() {
         owner = msg.sender;
@@ -134,6 +135,8 @@ contract FHEVoter is SepoliaConfig {
 
         (uint32 decryptedInput) = abi.decode(cleartexts, (uint32));
         totalVotes = decryptedInput;
+
+        emit CountDecrypted(totalVotes);
     }
 
 
