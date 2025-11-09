@@ -15,17 +15,9 @@ contract FHEVoter is SepoliaConfig {
     euint32 private encryptedConstantZero;
     mapping(address => ebool) private individualVotes;
 
-    // it'd be better to not have this... since it's quite easy for someone compromising the contract
-    // to get the list of voters. the individualVotes at least requires you to check every address...
-    // we can remove it by having a "live tally" model, only keeping `individualVotes`.
-    // when someone votes for the second (or more) time, we substract their previous vote from the total
-    // and we then add the new vote.
-    address[] private voters;
-
     mapping(address => bool) private hasVoted;
-    uint32 private totalVotes; // =0 by default. It is only used when the owner calls "decryptCount"
+    uint32 private clearCount; // =0 by default. It is only used when the owner calls "decryptCount"
     address private owner;
-    bool private votesCounted;
     bool private isVotingOpen;
 
     event CountDecrypted(uint32 count);
@@ -60,13 +52,25 @@ contract FHEVoter is SepoliaConfig {
 
     // using a boolean allows us to ensure what we add is always 0 or 1
     function vote(externalEbool externalYesOrNo, bytes calldata proof) external onlyWhenVotingOpen {
-        ebool yesOrNo = FHE.fromExternal(externalYesOrNo, proof);
+        ebool currentVote = FHE.fromExternal(externalYesOrNo, proof);
 
-        individualVotes[msg.sender] = yesOrNo;
+        euint32 valueToAdd;
         if (!hasVoted[msg.sender]) {
-            voters.push(msg.sender);
+            valueToAdd = FHE.select(currentVote, encryptedConstantOne, encryptedConstantZero);
             hasVoted[msg.sender] = true;
+        } else {
+            // subtract the previous vote from the total, and then add the new one
+            ebool previousVote = individualVotes[msg.sender];
+            euint32 valueToSubtract = FHE.select(previousVote, encryptedConstantOne, encryptedConstantZero);
+            encryptedCount = FHE.sub(encryptedCount, valueToSubtract);
+            FHE.allowThis(encryptedCount);
+
+            valueToAdd = FHE.select(currentVote, encryptedConstantOne, encryptedConstantZero);
         }
+        encryptedCount = FHE.add(encryptedCount, valueToAdd);
+        FHE.allowThis(encryptedCount);
+
+        individualVotes[msg.sender] = currentVote; // overwrite with the new vote
 
         FHE.allow(individualVotes[msg.sender], msg.sender); // allows the sender to decrypt ITS VOTE
         FHE.allowThis(individualVotes[msg.sender]); // allows the contract to use this value too
@@ -80,19 +84,7 @@ contract FHEVoter is SepoliaConfig {
         return individualVotes[msg.sender];
     }
 
-    function countVotes() private onlyWhenVotingClosed onlyOwner {
-        if (votesCounted) return;
-
-        for (uint256 i = 0; i < voters.length; i++) {
-            euint32 voteToAdd = FHE.select(individualVotes[voters[i]], encryptedConstantOne, encryptedConstantZero);
-            encryptedCount = FHE.add(encryptedCount, voteToAdd);
-            FHE.allowThis(encryptedCount);
-        }
-        votesCounted = true;
-    }
-
     function requestDecryption() external onlyWhenVotingClosed onlyOwner {
-        countVotes();
 
         bytes32[] memory cypherTexts = new bytes32[](1);
         cypherTexts[0] = FHE.toBytes32(encryptedCount);
@@ -105,7 +97,7 @@ contract FHEVoter is SepoliaConfig {
     }
 
     function getDecryptedCount() external onlyWhenVotingClosed view returns (uint32) {
-        return totalVotes;
+        return clearCount;
     }
 
     function callbackDecryptSingleUint32(
@@ -138,9 +130,9 @@ contract FHEVoter is SepoliaConfig {
         FHE.checkSignatures(requestID, cleartexts, decryptionProof);
 
         (uint32 decryptedInput) = abi.decode(cleartexts, (uint32));
-        totalVotes = decryptedInput;
+        clearCount = decryptedInput;
 
-        emit CountDecrypted(totalVotes);
+        emit CountDecrypted(clearCount);
     }
 
 
