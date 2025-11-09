@@ -7,6 +7,15 @@ import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 // IDEA: to allow for a voting scheme that has multiple candidates (and only one vote per candidate) we can receive
 // an array of booleans (and a proof that only one of them is true? or can we handle this internally with some FHE operations?)
 // such as `select`
+// https://claude.ai/share/d065d579-5b33-4c03-a9e7-98586997c237
+// this has some ideas to implement ZK proofs for the multiple votes
+// we may need to use zk proofs in order to verify that the user provided exactly one true value in the array of booleans
+// what we can do with FHE is get an ebool that (when decrypted) is true <=> the sum of all user votes is exactly k 
+// where k is the number of candidates someone can vote (think ranked voting systems...)
+// however, we would need to decrypt that number! And that is not very secure... it would give us info about exactly how many votes
+// someone made. 
+// ZK proofs are better. They would allow us to verify that the user provided <= k true values in the array of booleans.
+// without us knowing the exact number of true values in their array
 
 // inherits from SepoliaConfig to enable fhEVM support
 contract FHEVoter is SepoliaConfig {
