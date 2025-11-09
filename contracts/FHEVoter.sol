@@ -50,30 +50,43 @@ contract FHEVoter is SepoliaConfig {
         isVotingOpen = false;
     }
 
+    function eboolToOneOrZero(ebool boolValue) private returns (euint32) {
+        return FHE.select(boolValue, encryptedConstantOne, encryptedConstantZero);
+    }
+
+    function subtractFromCount(euint32 valueToSubtract) private {
+        encryptedCount = FHE.sub(encryptedCount, valueToSubtract);
+        FHE.allowThis(encryptedCount);
+    }
+    function addToCount(euint32 valueToAdd) private {
+        encryptedCount = FHE.add(encryptedCount, valueToAdd);
+        FHE.allowThis(encryptedCount);
+    }
+    function setVote(ebool currentVote, address voter) private {
+        individualVotes[voter] = currentVote;
+        FHE.allow(individualVotes[voter], voter);
+        FHE.allowThis(individualVotes[voter]);
+    }
+
     // using a boolean allows us to ensure what we add is always 0 or 1
     function vote(externalEbool externalYesOrNo, bytes calldata proof) external onlyWhenVotingOpen {
         ebool currentVote = FHE.fromExternal(externalYesOrNo, proof);
 
         euint32 valueToAdd;
         if (!hasVoted[msg.sender]) {
-            valueToAdd = FHE.select(currentVote, encryptedConstantOne, encryptedConstantZero);
+            valueToAdd = eboolToOneOrZero(currentVote);
             hasVoted[msg.sender] = true;
         } else {
             // subtract the previous vote from the total, and then add the new one
             ebool previousVote = individualVotes[msg.sender];
-            euint32 valueToSubtract = FHE.select(previousVote, encryptedConstantOne, encryptedConstantZero);
-            encryptedCount = FHE.sub(encryptedCount, valueToSubtract);
-            FHE.allowThis(encryptedCount);
+            euint32 valueToSubtract = eboolToOneOrZero(previousVote);
+            subtractFromCount(valueToSubtract);
 
-            valueToAdd = FHE.select(currentVote, encryptedConstantOne, encryptedConstantZero);
+            valueToAdd = eboolToOneOrZero(currentVote);
         }
-        encryptedCount = FHE.add(encryptedCount, valueToAdd);
-        FHE.allowThis(encryptedCount);
+        addToCount(valueToAdd);
 
-        individualVotes[msg.sender] = currentVote; // overwrite with the new vote
-
-        FHE.allow(individualVotes[msg.sender], msg.sender); // allows the sender to decrypt ITS VOTE
-        FHE.allowThis(individualVotes[msg.sender]); // allows the contract to use this value too
+        setVote(currentVote, msg.sender);
     }
 
     function getCount() external onlyWhenVotingClosed view returns (euint32) {
