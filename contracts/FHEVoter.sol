@@ -4,6 +4,10 @@ pragma solidity ^0.8.24;
 import {FHE, euint32, externalEuint32, ebool, externalEbool} from "@fhevm/solidity/lib/FHE.sol";
 import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 
+// IDEA: to allow for a voting scheme that has multiple candidates (and only one vote per candidate) we can receive
+// an array of booleans (and a proof that only one of them is true? or can we handle this internally with some FHE operations?)
+// such as `select`
+
 // inherits from SepoliaConfig to enable fhEVM support
 contract FHEVoter is SepoliaConfig {
     euint32 private encryptedCount;
