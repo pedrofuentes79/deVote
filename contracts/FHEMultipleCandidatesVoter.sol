@@ -123,6 +123,7 @@ contract FHEMultipleCandidatesVoter is SepoliaConfig {
     ) external {
         FHE.checkSignatures(requestID, cleartexts, decryptionProof);
 
+        // see docs/DECRYPTION_NOTES.md on why we need to manually extract the values
         uint32[] memory decryptedValues = new uint32[](candidateCount);
 
         for (uint32 i = 0; i < candidateCount; i++) {
