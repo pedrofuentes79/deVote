@@ -62,10 +62,10 @@ task("vote:check", "Check your own vote")
     console.log(`Your vote: ${decryptedVote ? "YES" : "NO"}`);
   });
 
-task("vote:close", "Close voting and decrypt results")
+task("vote:close", "Close voting and request decryption")
   .addOptionalParam("address", "Contract address")
   .setAction(async function (taskArguments: TaskArguments, hre) {
-    const { ethers, deployments, fhevm } = hre;
+    const { ethers, deployments, network } = hre;
 
     const deployment = taskArguments.address
       ? { address: taskArguments.address }
@@ -87,10 +87,14 @@ task("vote:close", "Close voting and decrypt results")
     tx = await contract.requestDecryption();
     await tx.wait();
 
-    await fhevm.awaitDecryptionOracle();
-
-    const count = await contract.getDecryptedCount();
-    console.log(`Final result: ${count} YES votes`);
+    if (network.name === "localhost" || network.name === "hardhat") {
+      const { fhevm } = hre;
+      await fhevm.awaitDecryptionOracle();
+      const count = await contract.getDecryptedCount();
+      console.log(`Result: ${count} YES votes`);
+    } else {
+      console.log("Decryption requested. Check results with: npx hardhat vote:results --address " + deployment.address + " --network " + network.name);
+    }
   });
 
 task("vote:results", "Get decrypted results")
