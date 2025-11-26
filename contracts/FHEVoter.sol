@@ -10,26 +10,33 @@ import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 // https://claude.ai/share/d065d579-5b33-4c03-a9e7-98586997c237
 // this has some ideas to implement ZK proofs for the multiple votes
 // we may need to use zk proofs in order to verify that the user provided exactly one true value in the array of booleans
-// what we can do with FHE is get an ebool that (when decrypted) is true <=> the sum of all user votes is exactly k 
+// what we can do with FHE is get an ebool that (when decrypted) is true <=> the sum of all user votes is exactly k
 // where k is the number of candidates someone can vote (think ranked voting systems...)
 // however, we would need to decrypt that number! And that is not very secure... it would give us info about exactly how many votes
-// someone made. 
+// someone made.
 // ZK proofs are better. They would allow us to verify that the user provided <= k true values in the array of booleans.
 // without us knowing the exact number of true values in their array
 
 // inherits from SepoliaConfig to enable fhEVM support
 contract FHEVoter is SepoliaConfig {
+    struct VoterState {
+        uint256 lastElectionId;
+        ebool encryptedVote;
+    }
+
     euint32 private encryptedCount;
     euint32 private encryptedConstantOne;
     euint32 private encryptedConstantZero;
-    mapping(address => ebool) private individualVotes;
+    mapping(address => VoterState) private voterStates;
 
-    mapping(address => bool) private hasVoted;
     uint32 private clearCount; // =0 by default. It is only used when the owner calls "decryptCount"
     address private owner;
     bool private isVotingOpen;
+    uint256 private electionId;
 
     event CountDecrypted(uint32 count);
+    event VotingStarted();
+    event VotingClosed();
 
     constructor() {
         owner = msg.sender;
@@ -38,6 +45,8 @@ contract FHEVoter is SepoliaConfig {
         FHE.allowThis(encryptedConstantOne);
         FHE.allowThis(encryptedConstantZero);
         isVotingOpen = true;
+        electionId = 1;
+        emit VotingStarted();
     }
 
     modifier onlyWhenVotingOpen() {
@@ -55,8 +64,19 @@ contract FHEVoter is SepoliaConfig {
         _;
     }
 
-    function closeVoting() external onlyWhenVotingOpen onlyOwner{
+    function closeVoting() external onlyWhenVotingOpen onlyOwner {
         isVotingOpen = false;
+        emit VotingClosed();
+    }
+
+    function startVoting() external onlyOwner {
+        isVotingOpen = true;
+        encryptedCount = FHE.asEuint32(0);
+        FHE.allowThis(encryptedCount);
+        clearCount = 0;
+        electionId++;
+
+        emit VotingStarted();
     }
 
     function eboolToOneOrZero(ebool boolValue) private returns (euint32) {
@@ -67,27 +87,30 @@ contract FHEVoter is SepoliaConfig {
         encryptedCount = FHE.sub(encryptedCount, valueToSubtract);
         FHE.allowThis(encryptedCount);
     }
+
     function addToCount(euint32 valueToAdd) private {
         encryptedCount = FHE.add(encryptedCount, valueToAdd);
         FHE.allowThis(encryptedCount);
     }
+
     function setVote(ebool currentVote, address voter) private {
-        individualVotes[voter] = currentVote;
-        FHE.allow(individualVotes[voter], voter);
-        FHE.allowThis(individualVotes[voter]);
+        voterStates[voter] = VoterState(electionId, currentVote);
+        FHE.allow(currentVote, voter);
+        FHE.allowThis(currentVote);
     }
 
     // using a boolean allows us to ensure what we add is always 0 or 1
     function vote(externalEbool externalYesOrNo, bytes calldata proof) external onlyWhenVotingOpen {
         ebool currentVote = FHE.fromExternal(externalYesOrNo, proof);
+        VoterState memory state = voterStates[msg.sender];
 
         euint32 valueToAdd;
-        if (!hasVoted[msg.sender]) {
+        if (state.lastElectionId != electionId) {
             valueToAdd = eboolToOneOrZero(currentVote);
-            hasVoted[msg.sender] = true;
+            // state update happens in setVote
         } else {
             // subtract the previous vote from the total, and then add the new one
-            ebool previousVote = individualVotes[msg.sender];
+            ebool previousVote = state.encryptedVote;
             euint32 valueToSubtract = eboolToOneOrZero(previousVote);
             subtractFromCount(valueToSubtract);
 
@@ -98,19 +121,20 @@ contract FHEVoter is SepoliaConfig {
         setVote(currentVote, msg.sender);
     }
 
-    function getCount() external onlyWhenVotingClosed view returns (euint32) {
+    function getCount() external view onlyWhenVotingClosed returns (euint32) {
         return encryptedCount;
     }
 
     function getMyVote() external view returns (ebool) {
-        return individualVotes[msg.sender];
+        VoterState memory state = voterStates[msg.sender];
+        require(state.lastElectionId == electionId, "User has not voted");
+        return state.encryptedVote;
     }
 
     function requestDecryption() external onlyWhenVotingClosed onlyOwner {
-
         bytes32[] memory cypherTexts = new bytes32[](1);
         cypherTexts[0] = FHE.toBytes32(encryptedCount);
-            FHE.requestDecryption(
+        FHE.requestDecryption(
             // the list of encrypted values we want to publc decrypt
             cypherTexts,
             // the function selector the FHEVM backend will callback with the clear values as arguments
@@ -118,18 +142,18 @@ contract FHEVoter is SepoliaConfig {
         );
     }
 
-    function getDecryptedCount() external onlyWhenVotingClosed view returns (uint32) {
+    function getDecryptedCount() external view onlyWhenVotingClosed returns (uint32) {
         return clearCount;
     }
 
     function callbackDecryptSingleUint32(
-        uint256 requestID, 
-        bytes memory cleartexts, 
+        uint256 requestID,
+        bytes memory cleartexts,
         bytes memory decryptionProof
     ) external {
         // The `cleartexts` argument is an ABI encoding of the decrypted values associated to the
-        // handles (using `abi.encode`). 
-        // 
+        // handles (using `abi.encode`).
+        //
         // ===============================
         //    ☠️🔒 SECURITY WARNING! 🔒☠️
         // ===============================
@@ -146,16 +170,14 @@ contract FHEVoter is SepoliaConfig {
         // forged values, potentially compromising contract integrity.
         //
         // The responsibility for signature validation lies entirely with the contract author.
-        // 
+        //
         // The signatures are included in the `decryptionProof` parameter.
         //
         FHE.checkSignatures(requestID, cleartexts, decryptionProof);
 
-        (uint32 decryptedInput) = abi.decode(cleartexts, (uint32));
+        uint32 decryptedInput = abi.decode(cleartexts, (uint32));
         clearCount = decryptedInput;
 
         emit CountDecrypted(clearCount);
     }
-
-
 }

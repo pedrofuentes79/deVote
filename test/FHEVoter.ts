@@ -196,4 +196,74 @@ describe("FHEVoter", function () {
         expect(clearCount).to.eq(0);
     });
 
+    it("should not allow non-owner to close voting", async function () {
+        await expect(
+            fheVoterContract.connect(signers.alice).closeVoting()
+        ).to.be.revertedWith("Only owner can call this function");
+    });
+
+    it("should not allow non-owner to start voting", async function () {
+        await expect(
+            fheVoterContract.connect(signers.alice).startVoting()
+        ).to.be.revertedWith("Only owner can call this function");
+    });
+
+    it("should not allow getCount when voting is open", async function () {
+        await expect(
+            fheVoterContract.connect(signers.deployer).getCount()
+        ).to.be.revertedWith("Voting is open");
+    });
+
+    it("should not allow requestDecryption when voting is open", async function () {
+         await expect(
+            fheVoterContract.connect(signers.deployer).requestDecryption()
+        ).to.be.revertedWith("Voting is open");
+    });
+
+    it("handles multiple voters changing their votes correctly", async function () {
+        // Alice votes true
+        const aliceTrue = await fhevm.createEncryptedInput(fheVoterContractAddress, signers.alice.address).addBool(true).encrypt();
+        await (await fheVoterContract.connect(signers.alice).vote(aliceTrue.handles[0], aliceTrue.inputProof)).wait();
+
+        // Bob votes false
+        const bobFalse = await fhevm.createEncryptedInput(fheVoterContractAddress, signers.bob.address).addBool(false).encrypt();
+        await (await fheVoterContract.connect(signers.bob).vote(bobFalse.handles[0], bobFalse.inputProof)).wait();
+
+        // Alice changes to false
+        const aliceFalse = await fhevm.createEncryptedInput(fheVoterContractAddress, signers.alice.address).addBool(false).encrypt();
+        await (await fheVoterContract.connect(signers.alice).vote(aliceFalse.handles[0], aliceFalse.inputProof)).wait();
+
+        // Bob changes to true
+        const bobTrue = await fhevm.createEncryptedInput(fheVoterContractAddress, signers.bob.address).addBool(true).encrypt();
+        await (await fheVoterContract.connect(signers.bob).vote(bobTrue.handles[0], bobTrue.inputProof)).wait();
+
+        const clearCount = await requestDecryptionAndGetCount(fheVoterContract, signers.deployer);
+        expect(clearCount).to.eq(1); // Alice False (0) + Bob True (1) = 1
+    });
+
+    it("should reset votes and count when voting restarts", async function () {
+        // Alice votes true
+        const aliceTrue = await fhevm.createEncryptedInput(fheVoterContractAddress, signers.alice.address).addBool(true).encrypt();
+        await (await fheVoterContract.connect(signers.alice).vote(aliceTrue.handles[0], aliceTrue.inputProof)).wait();
+
+        await fheVoterContract.connect(signers.deployer).closeVoting();
+        
+        // Restart
+        await fheVoterContract.connect(signers.deployer).startVoting();
+
+        // Alice votes true again (in new election)
+        const aliceTrue2 = await fhevm.createEncryptedInput(fheVoterContractAddress, signers.alice.address).addBool(true).encrypt();
+        await (await fheVoterContract.connect(signers.alice).vote(aliceTrue2.handles[0], aliceTrue2.inputProof)).wait();
+
+        const clearCount = await requestDecryptionAndGetCount(fheVoterContract, signers.deployer);
+        // If the bug exists, this might be 0. Correct behavior is 1.
+        expect(clearCount).to.eq(1);
+    });
+
+    it("should revert when calling getMyVote if user has not voted", async function () {
+        await expect(
+            fheVoterContract.connect(signers.alice).getMyVote()
+        ).to.be.revertedWith("User has not voted");
+    });
+
 });
