@@ -4,11 +4,15 @@ pragma solidity ^0.8.24;
 import {FHE, euint32, externalEuint32, ebool, externalEbool} from "@fhevm/solidity/lib/FHE.sol";
 import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 
-contract FHEMultipleCandidatesVoter is SepoliaConfig {
+// TODO: implement multiple rounds of voting
+
+contract FHERankedVoter is SepoliaConfig {
     uint32 public candidateCount;
+    uint32 public maxVoteChoices;
+    uint32[] public votePoints;
 
     mapping(uint32 => euint32) private candidateVoteCounts;
-    mapping(address => euint32) private voterChoices;
+    mapping(address => euint32[]) private voterChoices;
     mapping(address => bool) private hasVoted;
 
     mapping(uint32 => uint32) private clearCandidateCounts;
@@ -16,20 +20,37 @@ contract FHEMultipleCandidatesVoter is SepoliaConfig {
     bool private isVotingOpen;
 
     mapping(uint32 => euint32) private encryptedCandidateIds;
+    mapping(uint32 => euint32) private encryptedVotePoints;
 
     event CountsDecrypted(uint32[] counts);
 
-    constructor(uint32 _candidateCount) {
+    constructor(uint32 _candidateCount, uint32 _maxVoteChoices, uint32[] memory _votePoints) {
         require(_candidateCount > 0, "Must have at least one candidate");
+        require(_maxVoteChoices > 0, "Must have at least one vote choice");
+        require(_votePoints.length == _maxVoteChoices, "Vote points must match max vote choices");
+        require(
+            _candidateCount >= _maxVoteChoices,
+            "Candidate count must be greater than or equal to max vote choices"
+        );
+
         owner = msg.sender;
         candidateCount = _candidateCount;
+        maxVoteChoices = _maxVoteChoices;
+        votePoints = _votePoints;
         isVotingOpen = true;
 
         for (uint32 i = 0; i < candidateCount; i++) {
             candidateVoteCounts[i] = FHE.asEuint32(0);
             FHE.allowThis(candidateVoteCounts[i]);
-            encryptedCandidateIds[i] = FHE.asEuint32(i); // should this be ran every time instead of saving it?
+            // should this be ran every time instead of saving it?
+            encryptedCandidateIds[i] = FHE.asEuint32(i);
             FHE.allowThis(encryptedCandidateIds[i]);
+        }
+
+        for (uint32 i = 0; i < maxVoteChoices; i++) {
+            // should this be ran every time instead of saving it?
+            encryptedVotePoints[i] = FHE.asEuint32(votePoints[i]);
+            FHE.allowThis(encryptedVotePoints[i]);
         }
     }
 
@@ -52,33 +73,41 @@ contract FHEMultipleCandidatesVoter is SepoliaConfig {
         isVotingOpen = false;
     }
 
-    function eboolToOneOrZero(ebool boolValue) private returns (euint32) {
-        return FHE.select(boolValue, FHE.asEuint32(1), FHE.asEuint32(0));
-    }
-
-    function vote(externalEuint32 encryptedCandidateId, bytes calldata proof) external onlyWhenVotingOpen {
-        euint32 candidateId = FHE.fromExternal(encryptedCandidateId, proof);
+    function vote(externalEuint32[] memory encryptedVotes, bytes calldata proof) external onlyWhenVotingOpen {
+        require(encryptedVotes.length == maxVoteChoices, "Invalid number of vote choices");
 
         if (hasVoted[msg.sender]) {
-            euint32 previousCandidateId = voterChoices[msg.sender];
+            for (uint32 i = 0; i < maxVoteChoices; i++) {
+                euint32 previousCandidateId = voterChoices[msg.sender][i];
 
-            for (uint32 i = 0; i < candidateCount; i++) {
-                ebool isPreviousCandidate = FHE.eq(previousCandidateId, encryptedCandidateIds[i]);
-                euint32 toSubtract = eboolToOneOrZero(isPreviousCandidate);
-                candidateVoteCounts[i] = FHE.sub(candidateVoteCounts[i], toSubtract);
+                for (uint32 j = 0; j < candidateCount; j++) {
+                    ebool isPreviousCandidate = FHE.eq(previousCandidateId, encryptedCandidateIds[j]);
+                    euint32 toSubtract = FHE.select(isPreviousCandidate, encryptedVotePoints[i], FHE.asEuint32(0));
+                    candidateVoteCounts[j] = FHE.sub(candidateVoteCounts[j], toSubtract);
+                }
             }
         }
 
-        for (uint32 i = 0; i < candidateCount; i++) {
-            ebool isThisCandidate = FHE.eq(candidateId, encryptedCandidateIds[i]);
-            euint32 toAdd = eboolToOneOrZero(isThisCandidate);
-            candidateVoteCounts[i] = FHE.add(candidateVoteCounts[i], toAdd);
-            FHE.allowThis(candidateVoteCounts[i]);
-        }
+        for (uint32 i = 0; i < maxVoteChoices; i++) {
+            euint32 candidateId = FHE.fromExternal(encryptedVotes[i], proof);
 
-        voterChoices[msg.sender] = candidateId;
-        FHE.allow(voterChoices[msg.sender], msg.sender);
-        FHE.allowThis(voterChoices[msg.sender]);
+            if (hasVoted[msg.sender]) {
+                voterChoices[msg.sender][i] = candidateId;
+            } else {
+                // how can this fail?
+                voterChoices[msg.sender].push(candidateId);
+            }
+
+            FHE.allow(voterChoices[msg.sender][i], msg.sender);
+            FHE.allowThis(voterChoices[msg.sender][i]);
+
+            for (uint32 j = 0; j < candidateCount; j++) {
+                ebool isThisCandidate = FHE.eq(candidateId, encryptedCandidateIds[j]);
+                euint32 toAdd = FHE.select(isThisCandidate, encryptedVotePoints[i], FHE.asEuint32(0));
+                candidateVoteCounts[j] = FHE.add(candidateVoteCounts[j], toAdd);
+                FHE.allowThis(candidateVoteCounts[j]);
+            }
+        }
 
         hasVoted[msg.sender] = true;
     }
@@ -88,7 +117,7 @@ contract FHEMultipleCandidatesVoter is SepoliaConfig {
         return candidateVoteCounts[candidateId];
     }
 
-    function getMyVote() external view returns (euint32) {
+    function getMyVote() external view returns (euint32[] memory) {
         require(hasVoted[msg.sender], "You have not voted yet");
         return voterChoices[msg.sender];
     }
