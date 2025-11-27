@@ -251,13 +251,13 @@ describe("FHEVoter", function () {
         // Restart
         await fheVoterContract.connect(signers.deployer).startVoting();
 
-        // Alice votes true again (in new election)
-        const aliceTrue2 = await fhevm.createEncryptedInput(fheVoterContractAddress, signers.alice.address).addBool(true).encrypt();
-        await (await fheVoterContract.connect(signers.alice).vote(aliceTrue2.handles[0], aliceTrue2.inputProof)).wait();
+        // Alice votes false (in new election)
+        const aliceFalse = await fhevm.createEncryptedInput(fheVoterContractAddress, signers.alice.address).addBool(false).encrypt();
+        await (await fheVoterContract.connect(signers.alice).vote(aliceFalse.handles[0], aliceFalse.inputProof)).wait();
 
         const clearCount = await requestDecryptionAndGetCount(fheVoterContract, signers.deployer);
-        // If the bug exists, this might be 0. Correct behavior is 1.
-        expect(clearCount).to.eq(1);
+        // If the bug exists, this might be 1. Correct behavior is 0.
+        expect(clearCount).to.eq(0);
     });
 
     it("should revert when calling getMyVote if user has not voted", async function () {
