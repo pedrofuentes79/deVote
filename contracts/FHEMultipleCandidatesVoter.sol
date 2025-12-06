@@ -25,7 +25,7 @@ contract FHEMultipleCandidatesVoter is SepoliaConfig {
         candidateCount = _candidateCount;
         isVotingOpen = true;
 
-        for (uint32 i = 0; i < candidateCount; i++) {
+        for (uint32 i = 0; i < candidateCount; ++i) {
             candidateVoteCounts[i] = FHE.asEuint32(0);
             FHE.allowThis(candidateVoteCounts[i]);
             encryptedCandidateIds[i] = FHE.asEuint32(i); // should this be ran every time instead of saving it?
@@ -62,14 +62,14 @@ contract FHEMultipleCandidatesVoter is SepoliaConfig {
         if (hasVoted[msg.sender]) {
             euint32 previousCandidateId = voterChoices[msg.sender];
 
-            for (uint32 i = 0; i < candidateCount; i++) {
+            for (uint32 i = 0; i < candidateCount; ++i) {
                 ebool isPreviousCandidate = FHE.eq(previousCandidateId, encryptedCandidateIds[i]);
                 euint32 toSubtract = eboolToOneOrZero(isPreviousCandidate);
                 candidateVoteCounts[i] = FHE.sub(candidateVoteCounts[i], toSubtract);
             }
         }
 
-        for (uint32 i = 0; i < candidateCount; i++) {
+        for (uint32 i = 0; i < candidateCount; ++i) {
             ebool isThisCandidate = FHE.eq(candidateId, encryptedCandidateIds[i]);
             euint32 toAdd = eboolToOneOrZero(isThisCandidate);
             candidateVoteCounts[i] = FHE.add(candidateVoteCounts[i], toAdd);
@@ -96,7 +96,8 @@ contract FHEMultipleCandidatesVoter is SepoliaConfig {
     function requestDecryption() external onlyWhenVotingClosed onlyOwner {
         bytes32[] memory cypherTexts = new bytes32[](candidateCount);
 
-        for (uint32 i = 0; i < candidateCount; i++) {
+        // post increment to save gas. Done on all for loops of all contracts.
+        for (uint32 i = 0; i < candidateCount; ++i) {
             cypherTexts[i] = FHE.toBytes32(candidateVoteCounts[i]);
         }
 
@@ -110,7 +111,7 @@ contract FHEMultipleCandidatesVoter is SepoliaConfig {
 
     function getAllDecryptedCounts() external view onlyWhenVotingClosed returns (uint32[] memory) {
         uint32[] memory counts = new uint32[](candidateCount);
-        for (uint32 i = 0; i < candidateCount; i++) {
+        for (uint32 i = 0; i < candidateCount; ++i) {
             counts[i] = clearCandidateCounts[i];
         }
         return counts;
@@ -126,7 +127,7 @@ contract FHEMultipleCandidatesVoter is SepoliaConfig {
         // see docs/DECRYPTION_NOTES.md on why we need to manually extract the values
         uint32[] memory decryptedValues = new uint32[](candidateCount);
 
-        for (uint32 i = 0; i < candidateCount; i++) {
+        for (uint32 i = 0; i < candidateCount; ++i) {
             uint32 value;
             assembly {
                 // Load 32 bytes from cleartexts at offset (adding 32 for the length prefix)

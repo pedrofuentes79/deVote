@@ -64,7 +64,7 @@ describe("FHEVoter", function () {
         console.log(`FHEVoter has been deployed at address ${fheVoterContractAddress}`);
         expect(ethers.isAddress(fheVoterContractAddress)).to.eq(true);
     });
-  
+
 
     it("allows to vote with true and to decrypt user vote", async function () {
         const clearVoteValue = true;
@@ -73,7 +73,10 @@ describe("FHEVoter", function () {
             .addBool(clearVoteValue)
             .encrypt();
 
-        const tx = await fheVoterContract.connect(signers.alice).vote(encryptedVoteValue.handles[0], encryptedVoteValue.inputProof);
+        const tx = await fheVoterContract
+            .connect(signers.alice)
+            .vote(encryptedVoteValue.handles[0], encryptedVoteValue.inputProof);
+
         await tx.wait();
 
         // verify that my vote was "true"

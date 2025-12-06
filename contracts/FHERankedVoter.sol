@@ -39,7 +39,7 @@ contract FHERankedVoter is SepoliaConfig {
         votePoints = _votePoints;
         isVotingOpen = true;
 
-        for (uint32 i = 0; i < candidateCount; i++) {
+        for (uint32 i = 0; i < candidateCount; ++i) {
             candidateVoteCounts[i] = FHE.asEuint32(0);
             FHE.allowThis(candidateVoteCounts[i]);
             // should this be ran every time instead of saving it?
@@ -47,7 +47,7 @@ contract FHERankedVoter is SepoliaConfig {
             FHE.allowThis(encryptedCandidateIds[i]);
         }
 
-        for (uint32 i = 0; i < maxVoteChoices; i++) {
+        for (uint32 i = 0; i < maxVoteChoices; ++i) {
             // should this be ran every time instead of saving it?
             encryptedVotePoints[i] = FHE.asEuint32(votePoints[i]);
             FHE.allowThis(encryptedVotePoints[i]);
@@ -77,7 +77,7 @@ contract FHERankedVoter is SepoliaConfig {
         require(encryptedVotes.length == maxVoteChoices, "Invalid number of vote choices");
 
         if (hasVoted[msg.sender]) {
-            for (uint32 i = 0; i < maxVoteChoices; i++) {
+            for (uint32 i = 0; i < maxVoteChoices; ++i) {
                 euint32 previousCandidateId = voterChoices[msg.sender][i];
 
                 for (uint32 j = 0; j < candidateCount; j++) {
@@ -88,7 +88,7 @@ contract FHERankedVoter is SepoliaConfig {
             }
         }
 
-        for (uint32 i = 0; i < maxVoteChoices; i++) {
+        for (uint32 i = 0; i < maxVoteChoices; ++i) {
             euint32 candidateId = FHE.fromExternal(encryptedVotes[i], proof);
 
             if (hasVoted[msg.sender]) {
@@ -125,7 +125,7 @@ contract FHERankedVoter is SepoliaConfig {
     function requestDecryption() external onlyWhenVotingClosed onlyOwner {
         bytes32[] memory cypherTexts = new bytes32[](candidateCount);
 
-        for (uint32 i = 0; i < candidateCount; i++) {
+        for (uint32 i = 0; i < candidateCount; ++i) {
             cypherTexts[i] = FHE.toBytes32(candidateVoteCounts[i]);
         }
 
@@ -139,7 +139,7 @@ contract FHERankedVoter is SepoliaConfig {
 
     function getAllDecryptedCounts() external view onlyWhenVotingClosed returns (uint32[] memory) {
         uint32[] memory counts = new uint32[](candidateCount);
-        for (uint32 i = 0; i < candidateCount; i++) {
+        for (uint32 i = 0; i < candidateCount; ++i) {
             counts[i] = clearCandidateCounts[i];
         }
         return counts;
@@ -155,7 +155,7 @@ contract FHERankedVoter is SepoliaConfig {
         // see docs/DECRYPTION_NOTES.md on why we need to manually extract the values
         uint32[] memory decryptedValues = new uint32[](candidateCount);
 
-        for (uint32 i = 0; i < candidateCount; i++) {
+        for (uint32 i = 0; i < candidateCount; ++i) {
             uint32 value;
             assembly {
                 // Load 32 bytes from cleartexts at offset (adding 32 for the length prefix)
