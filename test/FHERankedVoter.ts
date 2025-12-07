@@ -154,5 +154,57 @@ describe("FHERankedVoter", function () {
     expect(counts[3]).to.eq(0);
     expect(counts[4]).to.eq(0);
   });
-});
 
+  it("should reset votes and count when voting restarts", async function () {
+    // Alice votes: 0 (3pts), 1 (2pts), 2 (1pt)
+    const inputAlice = fhevm.createEncryptedInput(fheVoterContractAddress, signers.alice.address);
+    inputAlice.add32(0).add32(1).add32(2);
+    const encAlice = await inputAlice.encrypt();
+    await (await fheVoterContract.connect(signers.alice).vote(encAlice.handles, encAlice.inputProof)).wait();
+
+    await fheVoterContract.connect(signers.deployer).closeVoting();
+    
+    // Restart
+    await fheVoterContract.connect(signers.deployer).startVoting();
+
+    // Alice votes differently in new election: 1 (3pts), 0 (2pts), 2 (1pt)
+    const inputAlice2 = fhevm.createEncryptedInput(fheVoterContractAddress, signers.alice.address);
+    inputAlice2.add32(1).add32(0).add32(2);
+    const encAlice2 = await inputAlice2.encrypt();
+    await (await fheVoterContract.connect(signers.alice).vote(encAlice2.handles, encAlice2.inputProof)).wait();
+
+    await fheVoterContract.connect(signers.deployer).closeVoting();
+    await (await fheVoterContract.connect(signers.deployer).requestDecryption()).wait();
+    await fhevm.awaitDecryptionOracle();
+
+    const counts = await fheVoterContract.connect(signers.deployer).getAllDecryptedCounts();
+
+    // Old votes should be gone. Only new votes count.
+    // Cand 0: 2
+    // Cand 1: 3
+    // Cand 2: 1
+    expect(counts[0]).to.eq(2);
+    expect(counts[1]).to.eq(3);
+    expect(counts[2]).to.eq(1);
+  });
+
+  it("should revert when calling getMyVote if user has not voted in current election", async function () {
+    // Alice votes in first election
+    const inputAlice = fhevm.createEncryptedInput(fheVoterContractAddress, signers.alice.address);
+    inputAlice.add32(0).add32(1).add32(2);
+    const encAlice = await inputAlice.encrypt();
+    await (await fheVoterContract.connect(signers.alice).vote(encAlice.handles, encAlice.inputProof)).wait();
+
+    // Check she can see her vote
+    await fheVoterContract.connect(signers.alice).getMyVote();
+
+    // Restart election
+    await fheVoterContract.connect(signers.deployer).closeVoting();
+    await fheVoterContract.connect(signers.deployer).startVoting();
+
+    // Now she shouldn't be able to see her vote because she hasn't voted in *this* election yet
+    await expect(
+        fheVoterContract.connect(signers.alice).getMyVote()
+    ).to.be.revertedWith("You have not voted yet");
+  });
+});
