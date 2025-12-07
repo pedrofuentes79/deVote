@@ -127,7 +127,7 @@ contract FHEVoter is SepoliaConfig {
 
     function getMyVote() external view returns (ebool) {
         VoterState memory state = voterStates[msg.sender];
-        require(state.lastElectionId == electionId, "User has not voted");
+        require(state.lastElectionId == electionId, "You have not voted yet");
         return state.encryptedVote;
     }
 

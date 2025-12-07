@@ -5,32 +5,49 @@ import {FHE, euint32, externalEuint32, ebool, externalEbool} from "@fhevm/solidi
 import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 
 contract FHEMultipleCandidatesVoter is SepoliaConfig {
+    struct VoterState {
+        uint256 lastElectionId;
+        euint32 encryptedVote;
+    }
+
     uint32 public candidateCount;
 
     mapping(uint32 => euint32) private candidateVoteCounts;
-    mapping(address => euint32) private voterChoices;
-    mapping(address => bool) private hasVoted;
+    mapping(address => VoterState) private voterStates;
 
     mapping(uint32 => uint32) private clearCandidateCounts;
     address private owner;
     bool private isVotingOpen;
+    uint256 private electionId;
 
+    euint32 private encryptedConstantOne;
+    euint32 private encryptedConstantZero;
     mapping(uint32 => euint32) private encryptedCandidateIds;
 
     event CountsDecrypted(uint32[] counts);
+    event VotingStarted();
+    event VotingClosed();
 
     constructor(uint32 _candidateCount) {
         require(_candidateCount > 0, "Must have at least one candidate");
         owner = msg.sender;
         candidateCount = _candidateCount;
         isVotingOpen = true;
+        electionId = 1;
+
+        encryptedConstantOne = FHE.asEuint32(1);
+        encryptedConstantZero = FHE.asEuint32(0);
+        FHE.allowThis(encryptedConstantOne);
+        FHE.allowThis(encryptedConstantZero);
 
         for (uint32 i = 0; i < candidateCount; ++i) {
             candidateVoteCounts[i] = FHE.asEuint32(0);
             FHE.allowThis(candidateVoteCounts[i]);
-            encryptedCandidateIds[i] = FHE.asEuint32(i); // should this be ran every time instead of saving it?
+            encryptedCandidateIds[i] = FHE.asEuint32(i);
             FHE.allowThis(encryptedCandidateIds[i]);
         }
+
+        emit VotingStarted();
     }
 
     modifier onlyWhenVotingOpen() {
@@ -50,17 +67,41 @@ contract FHEMultipleCandidatesVoter is SepoliaConfig {
 
     function closeVoting() external onlyWhenVotingOpen onlyOwner {
         isVotingOpen = false;
+        emit VotingClosed();
+    }
+
+    function startVoting() external onlyOwner {
+        isVotingOpen = true;
+        electionId++;
+
+        for (uint32 i = 0; i < candidateCount; ++i) {
+            candidateVoteCounts[i] = FHE.asEuint32(0);
+            FHE.allowThis(candidateVoteCounts[i]);
+        }
+
+        for (uint32 i = 0; i < candidateCount; ++i) {
+            clearCandidateCounts[i] = 0;
+        }
+
+        emit VotingStarted();
     }
 
     function eboolToOneOrZero(ebool boolValue) private returns (euint32) {
-        return FHE.select(boolValue, FHE.asEuint32(1), FHE.asEuint32(0));
+        return FHE.select(boolValue, encryptedConstantOne, encryptedConstantZero);
+    }
+
+    function setVote(euint32 currentVote, address voter) private {
+        voterStates[voter] = VoterState(electionId, currentVote);
+        FHE.allow(currentVote, voter);
+        FHE.allowThis(currentVote);
     }
 
     function vote(externalEuint32 encryptedCandidateId, bytes calldata proof) external onlyWhenVotingOpen {
         euint32 candidateId = FHE.fromExternal(encryptedCandidateId, proof);
+        VoterState memory state = voterStates[msg.sender];
 
-        if (hasVoted[msg.sender]) {
-            euint32 previousCandidateId = voterChoices[msg.sender];
+        if (state.lastElectionId == electionId) {
+            euint32 previousCandidateId = state.encryptedVote;
 
             for (uint32 i = 0; i < candidateCount; ++i) {
                 ebool isPreviousCandidate = FHE.eq(previousCandidateId, encryptedCandidateIds[i]);
@@ -76,11 +117,7 @@ contract FHEMultipleCandidatesVoter is SepoliaConfig {
             FHE.allowThis(candidateVoteCounts[i]);
         }
 
-        voterChoices[msg.sender] = candidateId;
-        FHE.allow(voterChoices[msg.sender], msg.sender);
-        FHE.allowThis(voterChoices[msg.sender]);
-
-        hasVoted[msg.sender] = true;
+        setVote(candidateId, msg.sender);
     }
 
     function getCandidateCount(uint32 candidateId) external view onlyWhenVotingClosed returns (euint32) {
@@ -89,8 +126,9 @@ contract FHEMultipleCandidatesVoter is SepoliaConfig {
     }
 
     function getMyVote() external view returns (euint32) {
-        require(hasVoted[msg.sender], "You have not voted yet");
-        return voterChoices[msg.sender];
+        VoterState memory state = voterStates[msg.sender];
+        require(state.lastElectionId == electionId, "You have not voted yet");
+        return state.encryptedVote;
     }
 
     function requestDecryption() external onlyWhenVotingClosed onlyOwner {
@@ -118,7 +156,7 @@ contract FHEMultipleCandidatesVoter is SepoliaConfig {
     }
 
     function callbackDecryptMultipleUint32(
-        uint32 requestID,
+        uint256 requestID,
         bytes memory cleartexts,
         bytes memory decryptionProof
     ) external {

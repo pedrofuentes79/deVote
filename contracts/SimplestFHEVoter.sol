@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {FHE, euint32, externalEuint32, ebool, externalEbool} from "@fhevm/solidity/lib/FHE.sol";
 import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 // inherits from SepoliaConfig to enable fhEVM support
-contract FHEVoter is SepoliaConfig {
+contract SimplestFHEVoter is SepoliaConfig {
 
     euint32 private encryptedCount;
     mapping(address => euint32) private votes;

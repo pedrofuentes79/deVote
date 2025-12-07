@@ -266,7 +266,7 @@ describe("FHEVoter", function () {
     it("should revert when calling getMyVote if user has not voted", async function () {
         await expect(
             fheVoterContract.connect(signers.alice).getMyVote()
-        ).to.be.revertedWith("User has not voted");
+        ).to.be.revertedWith("You have not voted yet");
     });
 
 });
