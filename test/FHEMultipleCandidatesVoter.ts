@@ -305,6 +305,32 @@ describe("FHEMultipleCandidatesVoter", function () {
         ).to.be.revertedWith("You have not voted yet");
     });
 
+    it("voting for invalid candidate ID results in no votes counted", async function () {
+        // Vote for candidate 99, which doesn't exist (only 0, 1, 2 are valid)
+        const invalidCandidateId = 99;
+        const aliceVote = await fhevm
+            .createEncryptedInput(fheVoterContractAddress, signers.alice.address)
+            .add32(invalidCandidateId)
+            .encrypt();
+        let tx = await fheVoterContract.connect(signers.alice).vote(aliceVote.handles[0], aliceVote.inputProof);
+        await tx.wait();
+
+        // Also have bob vote for a valid candidate to ensure counting works
+        const bobVote = await fhevm
+            .createEncryptedInput(fheVoterContractAddress, signers.bob.address)
+            .add32(1)
+            .encrypt();
+        tx = await fheVoterContract.connect(signers.bob).vote(bobVote.handles[0], bobVote.inputProof);
+        await tx.wait();
+
+        const clearCounts = await requestDecryptionAndGetCounts(fheVoterContract, signers.deployer);
+
+        // Alice's invalid vote should not count for any candidate
+        expect(clearCounts[0]).to.eq(0);
+        expect(clearCounts[1]).to.eq(1); // Only Bob's valid vote
+        expect(clearCounts[2]).to.eq(0);
+    });
+
     it("works with different number of candidates", async function () {
         const { fheVoterContract: contract5, fheVoterContractAddress: address5 } = await deployFixture(5);
 

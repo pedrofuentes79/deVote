@@ -80,7 +80,7 @@ contract FHERankedVoter is SepoliaConfig {
             for (uint32 i = 0; i < maxVoteChoices; ++i) {
                 euint32 previousCandidateId = voterChoices[msg.sender][i];
 
-                for (uint32 j = 0; j < candidateCount; j++) {
+                for (uint32 j = 0; j < candidateCount; ++j) {
                     ebool isPreviousCandidate = FHE.eq(previousCandidateId, encryptedCandidateIds[j]);
                     euint32 toSubtract = FHE.select(isPreviousCandidate, encryptedVotePoints[i], FHE.asEuint32(0));
                     candidateVoteCounts[j] = FHE.sub(candidateVoteCounts[j], toSubtract);
@@ -101,7 +101,7 @@ contract FHERankedVoter is SepoliaConfig {
             FHE.allow(voterChoices[msg.sender][i], msg.sender);
             FHE.allowThis(voterChoices[msg.sender][i]);
 
-            for (uint32 j = 0; j < candidateCount; j++) {
+            for (uint32 j = 0; j < candidateCount; ++j) {
                 ebool isThisCandidate = FHE.eq(candidateId, encryptedCandidateIds[j]);
                 euint32 toAdd = FHE.select(isThisCandidate, encryptedVotePoints[i], FHE.asEuint32(0));
                 candidateVoteCounts[j] = FHE.add(candidateVoteCounts[j], toAdd);
