@@ -1,0 +1,9 @@
+# Ignorar todos los archivos
+*
+
+# Excepto archivos .tex y .pdf
+!*.tex
+!*.pdf
+
+# No ignorar .gitignore
+!.gitignore

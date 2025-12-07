@@ -1,0 +1,189 @@
+\documentclass[12pt, a4paper]{article}
+
+% --- Paquetes de Idioma y Codificación ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel} 
+
+% --- Paquetes de Formato y Diseño ---
+\usepackage{geometry}
+\geometry{top=2.5cm, bottom=2.5cm, left=3cm, right=3cm}
+\usepackage{parskip} % Espacio entre párrafos en lugar de sangría
+\usepackage{setspace}
+\onehalfspacing % Interlineado de 1.5
+
+% --- Paquetes Matemáticos  ---
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{amsthm}
+
+% --- Paquetes para Gráficos y Figuras ---
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% --- Paquetes para Código (Solidity/C++) ---
+\usepackage{listings}
+\usepackage{xcolor}
+
+% Configuración de colores para código
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+% --- Hipervínculos ---
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    filecolor=magenta,      
+    urlcolor=blue,
+    citecolor=blue,
+}
+
+% --- Datos del Documento ---
+\title{\textbf{FHElect: Un sistema de votación usando Fully Homomorphic Encryption}}
+\author{Fuentes \and Tievoli \and D'Elia \and}
+
+\begin{document}
+
+% --- Portada ---
+\maketitle
+\thispagestyle{empty} % Sin número de página en la portada
+\newpage
+
+% --- Resumen (Opcional) ---
+\begin{abstract}
+    \emph{
+        Los procesos electorales son fundamentales para las democracias y la toma de decisiones en organizaciones privadas. 
+        Para garantizar su legitimidad, es esencial asegurar propiedades como el anonimato y la integridad. 
+        Este trabajo explora el uso de Fully Homomorphic Encryption (FHE) como solución a los desafíos 
+        de los sistemas de votación electrónicos. 
+        Se analiza como FHE permite el conteo verificable de votos sobre datos cifrados, 
+        preservando la privacidad del votante y asegurando la transparencia.    
+        }
+\end{abstract}
+\newpage
+
+% --- Índice ---
+\tableofcontents
+\newpage
+
+% --- Inicio del Contenido ---
+\setcounter{page}{1}
+
+\section{Introducción y Motivación}
+% Aquí va el texto sobre el contexto actual, el costo de las elecciones ($230MM) y la dicotomía papel vs. digital.
+A lo largo de los años los sistemas de votación han evolucionado progresivamente en la búsqueda de mayor transparencia y robustez. 
+Sin embargo a medida que los procesos electorales aumentan su escala y requieren condiciones de seguridad cada vez más rígidas, 
+su ejecución se ha tornado costosa e ineficiente en términos de tiempo.
+
+En la actualidad, predominan dos paradigmas: 
+
+Por un lado, definimos como voto tradicional al voto que se realiza fisicamente
+mediante la introducción del mismo en un sobre para colocarlo en una urna. 
+
+Por otro lado el concepto de voto electrónico abarca cualquier implementación digital diseñada para gestionar 
+este proceso. 
+A lo largo de este informe, se presentarán distitnas alternativas de voto electrónico.
+
+
+\subsection{Voto Tradicional}
+
+El paradigma del voto tradicional es el estándar predominante en las democracias modernas y en muchas votaciones donde 
+el anonimato es fundamental. Esto se debe a la confianza histórica del sistema, y la sencillez con la que el elector
+se asegura de que su voto es en efecto anonimo.
+
+Sin embargo este sistema trae consigo varias desventajas:
+\begin{itemize}
+    \item{\textbf{Ineficiente temporalmente}: El recuento manual es un proceso lento que retrasa la oficialización de resultados.}
+    \item{\textbf{Costoso}: La logística necesaria para garantizar unas elecciones seguras y transparentes puede generar un costo muy elevado. 
+    Esto sucede especialmente en elecciones nacionales. Se estima que el costo de las elecciones nacionales en Argentina
+    en 2025 fue de  \$ 230.000 millones de pesos[cite: 1].}
+    \item{\textbf{Centralizado}: El sistema es vulnerable a errores humanos y fraudes, ya que el conteo depende
+    de la autoridad electoral.}
+\end{itemize}
+
+\subsection{Voto Electrónico}
+
+La motivación para implementar el voto electrónico nace de la necesidad de crear un sistema más ágil 
+que elimine el recuento manual de votos y el uso masivo de boletas físicas. 
+De esta manera los procesos electorales podrian resultar mucho más económicos gracias al desplome de los costos logísticos y 
+permitiendo a su vez la obtención de resultados de manera instantánea.
+
+Implementar sistemas de esta naturaleza puede implicar algunos inconvenientes:
+
+\begin{itemize}
+    \item{\textbf{Confianza}: A diferencia del sistema tradicional, en este caso los votantes no tienen la percepcion natural
+    de que su voto va a ser contabilizado. En lugar de depositarlo en una urna deben confiar en que el sistema digital 
+    con el que interactuan efectivamente va a realizar las operaciones esperadas}
+    \item{\textbf{Centralización}: Si estos sistemas se implementan de manera centralizada persiste el riesgo de que 
+    la autoridad electoral sea corrupta y manipule los resultados}
+    \item{\textbf{Ataques}: Como el sistema de votaciones es software pueden aparecer vulnerabilidades de seguridad
+    informaticas que pongan en riesgo el proceso.}
+\end{itemize}
+
+Las implementaciones de voto electrónico \textit{descentralizado} si bien resuelven el problema de la centralización,
+traen otras complicaciones que se van a discutir luego. 
+
+\section{Propiedades de un Sistema de Votación}
+\subsection{Privacidad}
+\subsection{Integridad}
+\subsection{Verificabilidad Individual y Universal}
+\subsection{Resistencia a la Coerción}
+
+\section{Análisis Crítico de los Enfoques Actuales}
+
+\subsection{Limitaciones del Voto Tradicional}
+% Análisis sobre confianza histórica vs ineficiencia y centralización.
+
+\subsection{El Problema del Voto Electrónico Centralizado}
+% La "Caja Negra".
+
+\subsection{Blockchain ``Naive'': Transparencia vs. Privacidad}
+% Explicación de por qué un smart contract simple expone el voto y viola la privacidad.
+
+\section{Planteamiento del Problema Criptográfico}
+% El "Cliffhanger": ¿Cómo computar datos sin revelarlos?
+% Introducción al problema que resuelve el Homomorfismo.
+
+% --- Bibliografía ---
+\begin{thebibliography}{9}
+
+\bibitem{mit_paper}
+\href{https://www.dci.mit.edu/projects/going-from-bad-to-worse-from-internet-voting-to-blockchain-voting }{
+    \textit{Going from bad to worse: from internet voting to blockchain voting}. MIT DigitalCurrency Initiative.}
+
+\bibitem{fhevm_whitepaper}
+\href{https://github.com/zama-ai/fhevm/blob/main/fhevm-whitepaper.pdf }{Zama AI. \textit{FHEVM Whitepaper}.}
+
+\bibitem{lanacion}
+\href{https://www.lanacion.com.ar/politica/el-costo-de-la-eleccion-sera-de-por-lo-menos-de-230-mil-millones-nid18102025/}{La Nación. \textit{El costo de la elección será de por lo menos de 230 mil millones}. 18/10/2025.}
+
+
+\end{thebibliography}
+
+\end{document}
