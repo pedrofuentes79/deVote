@@ -150,27 +150,83 @@ Las implementaciones de voto electrónico \textit{descentralizado} si bien resue
 traen otras complicaciones que se van a discutir luego. 
 
 \section{Propiedades de un Sistema de Votación}
-\subsection{Privacidad}
-\subsection{Integridad}
-\subsection{Verificabilidad Individual y Universal}
-\subsection{Resistencia a la Coerción}
 
-\section{Análisis Crítico de los Enfoques Actuales}
+En esta sección se describen algunas propiedades fundamentales que debe cumplir un sistema de votación:
+
+\begin{enumerate}
+    \item{\textbf{Privacidad}: No se  debe poder vincular un voto con la identidad de quien lo emite.}
+    \item{\textbf{Integridad}: El resultado final de una elección debe ser la suma exacta de los votos válidos.
+    Nadie puede modificar un voto una vez emitido.}
+    \item{\textbf{Verificabilidad Individual}: Cada votante puede comprobar que su voto fue incluido en el conteo final.}
+    \item{\textbf{Verificabilidad Universal}: Cualquiera puede verificar que la suma de los votos emitidos corresponde al resultado final.}
+    \item {\textbf{Resistencia a terceros}: Ningún votante puede probar a un tercero el contenido de su voto.}
+\end{enumerate}
+
+\newpage
+\section{Análisis de los Enfoques Actuales}
+
+A continuación se presenta un análisis de los sistemas de votación actuales respecto a las propiedades enunciadas 
+en la sección anterior.
 
 \subsection{Limitaciones del Voto Tradicional}
-% Análisis sobre confianza histórica vs ineficiencia y centralización.
+
+Este sistema satisface las propiedades de \textit{privacidad} y la \textit{resistencia a terceros}, dado que el acto físico en el cuarto oscuro 
+impide vincular un voto con su emisor o probarlo ante un tercero. 
+
+Las propiedades de \textit{integridad}, \textit{verificabilidad individual} y \textit{verificabilidad universal} no se garantizan necesariamente.
+
+Las tres dependen tanto del error humano que pueda ser cometido durante el conteo, como la honestidad de la entidad
+a cargo de la votación. Si esta entidad central es corrupta, ninguna de estas propiedades se cumple.
 
 \subsection{El Problema del Voto Electrónico Centralizado}
-% La "Caja Negra".
 
-\subsection{Blockchain ``Naive'': Transparencia vs. Privacidad}
-% Explicación de por qué un smart contract simple expone el voto y viola la privacidad.
+El voto electronico centralizado, si bien mejora la eficiencia temporal y reduce costos, presenta desafios respecto 
+a las propiedades definidas. 
 
-\section{Planteamiento del Problema Criptográfico}
-% El "Cliffhanger": ¿Cómo computar datos sin revelarlos?
-% Introducción al problema que resuelve el Homomorfismo.
+La propiedad de \textit{privacidad} no se satisface. Quien ejecuta el sistema podría vincular a quien emite el voto 
+con su contenido ya que, en una versión simple, es la misma entidad la que recibe los votos y autentica a los votantes para,
+por ejemplo evitar votos duplicados.
 
-% --- Bibliografía ---
+Las propiedades de \textit{integridad}, \textit{verificabilidad individual} y \textit{verificabilidad universal} no se garantizan ya que si quien controla
+la aplicación es corrupto, puede modificar los votos o el conteo final.
+
+La propiedad de \textit{resistencia a terceros} tampoco se cumple, ya que un votante podría mostrarle a un tercero
+como vota desde su dispositivo. Se cumple si el voto digital se emite desde un cuarto oscuro al igual que en el voto tradicional,
+
+\subsection{Blockchain ``Naive''}
+
+Una primera aproximación para resolver los problemas del voto electrónico sería utilizar una
+implementación naive usando blockchain. En este esquema, se desplegaría un smart contract que registre cada voto.
+
+En este modelo las propiedades de \textit{integridad}, \textit{verificabilidad individual} y \textit{verificabilidad universal} se cumplen por 
+las propiedades de la blockchain, donde el contenido es inmutable y público.
+
+Sin embargo, la \textit{privacidad} y la \textit{resistencia a terceros} no se cumplen. Dado que los votos son públicos en la blockchain, 
+cualquiera podría vincular un voto con su emisor.
+
+
+\section{FHE}
+
+Como se planteó en la sección anterior, realizar las operaciones necesarias con los datos asociados a los votos sin 
+revelar su contenido es necesario. La solución a estep problema es la criptografía homomórfica.
+
+El cifrado homomórfico permite realizar operaciones sobre datos cifrados sin necesidad de descifrarlos previamente.
+El resultado de estas operaciones, cuando se descifra, coincide con el resultado que se obtendría si las operaciones
+se hubieran realizado sobre los datos originales.
+
+Si tenemos una función de encriptación $H$ y dos valores $x$ e $y$, un esquema homomórfico aditivo cumple que:
+$$
+    H(x) + H(y) = H(x + y)
+$$
+
+Con esta propiedad es posible sumar los votos sin necesidad de descifrarlos previamente, preservando la privacidad de los votantes.
+
+Existen distintos niveles de homomorfismo. Los esquemas Parcialmente Homomórficos (PHE) 
+permiten realizar solo un tipo de operación (sumas o multiplicaciones, pero no ambas).
+
+Fully Homomorphic Encryption (FHE) permite realizar tanto sumas como productos sobre datos cifrados.
+
+
 \begin{thebibliography}{9}
 
 \bibitem{mit_paper}
