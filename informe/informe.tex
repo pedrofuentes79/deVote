@@ -96,119 +96,34 @@
 \setcounter{page}{1}
 
 \section{Introducción y Motivación}
-% Aquí va el texto sobre el contexto actual, el costo de las elecciones ($230MM) y la dicotomía papel vs. digital.
-A lo largo de los años los sistemas de votación han evolucionado progresivamente en la búsqueda de mayor transparencia y robustez. 
-Sin embargo a medida que los procesos electorales aumentan su escala y requieren condiciones de seguridad cada vez más rígidas, 
-su ejecución se ha tornado costosa e ineficiente en términos de tiempo.
 
-En la actualidad, predominan dos paradigmas: 
+Los sistemas de votación han evolucionado hacia una mayor transparencia y robustez, pero el aumento de escala y requisitos de seguridad ha elevado sus costos e ineficiencias. Actualmente coexisten dos paradigmas principales.
 
-Por un lado, definimos como voto tradicional al voto que se realiza fisicamente
-mediante la introducción del mismo en un sobre para colocarlo en una urna. 
+El \textbf{Voto Tradicional} es el estándar en democracias modernas por su confianza histórica y garantía de anonimato físico. No obstante, presenta desventajas significativas: es \textbf{ineficiente temporalmente} (recuento lento), \textbf{costoso} (logística compleja, ej. elecciones nacionales en Argentina 2025: \$230.000 millones \cite{lanacion}) y \textbf{centralizado} (vulnerable a errores y fraude de la autoridad).
 
-Por otro lado el concepto de voto electrónico abarca cualquier implementación digital diseñada para gestionar 
-este proceso. 
-A lo largo de este informe, se presentarán distitnas alternativas de voto electrónico.
-
-
-\subsection{Voto Tradicional}
-
-El paradigma del voto tradicional es el estándar predominante en las democracias modernas y en muchas votaciones donde 
-el anonimato es fundamental. Esto se debe a la confianza histórica del sistema, y la sencillez con la que el elector
-se asegura de que su voto es en efecto anonimo.
-
-Sin embargo este sistema trae consigo varias desventajas:
-\begin{itemize}
-    \item{\textbf{Ineficiente temporalmente}: El recuento manual es un proceso lento que retrasa la oficialización de resultados.}
-    \item{\textbf{Costoso}: La logística necesaria para garantizar unas elecciones seguras y transparentes puede generar un costo muy elevado. 
-    Esto sucede especialmente en elecciones nacionales. Se estima que el costo de las elecciones nacionales en Argentina
-    en 2025 fue de  \$ 230.000 millones de pesos[cite: 1].}
-    \item{\textbf{Centralizado}: El sistema es vulnerable a errores humanos y fraudes, ya que el conteo depende
-    de la autoridad electoral.}
-\end{itemize}
-
-\subsection{Voto Electrónico}
-
-La motivación para implementar el voto electrónico nace de la necesidad de crear un sistema más ágil 
-que elimine el recuento manual de votos y el uso masivo de boletas físicas. 
-De esta manera los procesos electorales podrian resultar mucho más económicos gracias al desplome de los costos logísticos y 
-permitiendo a su vez la obtención de resultados de manera instantánea.
-
-Implementar sistemas de esta naturaleza puede implicar algunos inconvenientes:
-
-\begin{itemize}
-    \item{\textbf{Confianza}: A diferencia del sistema tradicional, en este caso los votantes no tienen la percepcion natural
-    de que su voto va a ser contabilizado. En lugar de depositarlo en una urna deben confiar en que el sistema digital 
-    con el que interactuan efectivamente va a realizar las operaciones esperadas}
-    \item{\textbf{Centralización}: Si estos sistemas se implementan de manera centralizada persiste el riesgo de que 
-    la autoridad electoral sea corrupta y manipule los resultados}
-    \item{\textbf{Ataques}: Como el sistema de votaciones es software pueden aparecer vulnerabilidades de seguridad
-    informaticas que pongan en riesgo el proceso.}
-\end{itemize}
-
-Las implementaciones de voto electrónico \textit{descentralizado} si bien resuelven el problema de la centralización,
-traen otras complicaciones que se van a discutir luego. 
+El \textbf{Voto Electrónico} surge para agilizar el proceso y reducir costos logísticos. Sin embargo, introduce nuevos desafíos: falta de \textbf{confianza} (el votante no ve su voto físico), riesgos de \textbf{centralización} (manipulación por autoridades corruptas) y vulnerabilidad a \textbf{ataques} informáticos. Las variantes descentralizadas resuelven la centralización pero plantean otros retos. 
 
 \section{Propiedades de un Sistema de Votación}
 
-En esta sección se describen algunas propiedades fundamentales que debe cumplir un sistema de votación:
+Para que un sistema sea legítimo, debe garantizar: \textbf{Privacidad} (voto no vinculable al emisor), \textbf{Integridad} (resultado inmutable y exacto), \textbf{Verificabilidad} (tanto Individual como Universal) y \textbf{Resistencia a terceros} (imposibilidad de probar el voto para evitar venta o coerción).
 
-\begin{enumerate}
-    \item{\textbf{Privacidad}: No se  debe poder vincular un voto con la identidad de quien lo emite.}
-    \item{\textbf{Integridad}: El resultado final de una elección debe ser la suma exacta de los votos válidos.
-    Nadie puede modificar un voto una vez emitido.}
-    \item{\textbf{Verificabilidad Individual}: Cada votante puede comprobar que su voto fue incluido en el conteo final.}
-    \item{\textbf{Verificabilidad Universal}: Cualquiera puede verificar que la suma de los votos emitidos corresponde al resultado final.}
-    \item {\textbf{Resistencia a terceros}: Ningún votante puede probar a un tercero el contenido de su voto.}
-\end{enumerate}
-
-\newpage
 \section{Análisis de los Enfoques Actuales}
 
-A continuación se presenta un análisis de los sistemas de votación actuales respecto a las propiedades enunciadas 
-en la sección anterior.
+Analizando los enfoques existentes bajo estas propiedades:
 
-\subsection{Limitaciones del Voto Tradicional}
+El \textbf{Voto Tradicional} satisface privacidad y resistencia a terceros (gracias al cuarto oscuro), pero falla en integridad y verificabilidad debido a la dependencia humana y centralizada.
 
-Este sistema satisface las propiedades de \textit{privacidad} y la \textit{resistencia a terceros}, dado que el acto físico en el cuarto oscuro 
-impide vincular un voto con su emisor o probarlo ante un tercero. 
+El \textbf{Voto Electrónico Centralizado} mejora la eficiencia pero sacrifica la privacidad (el administrador tiene acceso total), la integridad y la verificabilidad. Además, no suele resistir a terceros (capturas de pantalla).
 
-Las propiedades de \textit{integridad}, \textit{verificabilidad individual} y \textit{verificabilidad universal} no se garantizan necesariamente.
+Una implementación \textbf{Blockchain ``Naive''} (smart contract público) resolvería la integridad y verificabilidad mediante la inmutabilidad de la cadena, pero fallaría catastróficamente en privacidad y resistencia a terceros, ya que los votos serían públicos.
 
-Las tres dependen tanto del error humano que pueda ser cometido durante el conteo, como la honestidad de la entidad
-a cargo de la votación. Si esta entidad central es corrupta, ninguna de estas propiedades se cumple.
-
-\subsection{El Problema del Voto Electrónico Centralizado}
-
-El voto electronico centralizado, si bien mejora la eficiencia temporal y reduce costos, presenta desafios respecto 
-a las propiedades definidas. 
-
-La propiedad de \textit{privacidad} no se satisface. Quien ejecuta el sistema podría vincular a quien emite el voto 
-con su contenido ya que, en una versión simple, es la misma entidad la que recibe los votos y autentica a los votantes para,
-por ejemplo evitar votos duplicados.
-
-Las propiedades de \textit{integridad}, \textit{verificabilidad individual} y \textit{verificabilidad universal} no se garantizan ya que si quien controla
-la aplicación es corrupto, puede modificar los votos o el conteo final.
-
-La propiedad de \textit{resistencia a terceros} tampoco se cumple, ya que un votante podría mostrarle a un tercero
-como vota desde su dispositivo. Se cumple si el voto digital se emite desde un cuarto oscuro al igual que en el voto tradicional,
-
-\subsection{Blockchain ``Naive''}
-
-Una primera aproximación para resolver los problemas del voto electrónico sería utilizar una
-implementación naive usando blockchain. En este esquema, se desplegaría un smart contract que registre cada voto.
-
-En este modelo las propiedades de \textit{integridad}, \textit{verificabilidad individual} y \textit{verificabilidad universal} se cumplen por 
-las propiedades de la blockchain, donde el contenido es inmutable y público.
-
-Sin embargo, la \textit{privacidad} y la \textit{resistencia a terceros} no se cumplen. Dado que los votos son públicos en la blockchain, 
-cualquiera podría vincular un voto con su emisor.
+Es necesario un sistema que combine la transparencia de la blockchain con la privacidad del cuarto oscuro.
 
 
 \section{FHE}
 
 Como se planteó en la sección anterior, realizar las operaciones necesarias con los datos asociados a los votos sin 
-revelar su contenido es necesario. La solución a estep problema es la criptografía homomórfica.
+revelar su contenido es necesario. La solución a este problema es la criptografía homomórfica.
 
 El cifrado homomórfico permite realizar operaciones sobre datos cifrados sin necesidad de descifrarlos previamente.
 El resultado de estas operaciones, cuando se descifra, coincide con el resultado que se obtendría si las operaciones
@@ -226,6 +141,113 @@ permiten realizar solo un tipo de operación (sumas o multiplicaciones, pero no 
 
 Fully Homomorphic Encryption (FHE) permite realizar tanto sumas como productos sobre datos cifrados.
 
+\section{Implementación}
+
+Para implementar un sistema de votación que cumpla con todas las propiedades deseadas, utilizamos la tecnología de Zama, específicamente fhEVM. Esta solución permite ejecutar contratos inteligentes sobre datos cifrados en una EVM compatible.
+
+La arquitectura general del sistema consta de los siguientes componentes:
+\begin{itemize}
+    \item \textbf{Host Chain}: Es la blockchain donde reside el estado y se ejecutan las transacciones. En nuestro caso, usamos la red de prueba Sepolia con soporte para FHE.
+    \item \textbf{Coprocesadores}: Realizan el cómputo pesado sobre los datos cifrados fuera de la cadena (off-chain) para evitar costos de gas prohibitivos.
+    \item \textbf{Gateway}: Orquesta la comunicación con los coprocesadores y asegura el consenso sobre los resultados cifrados.
+    \item \textbf{KMS (Key Management System)}: Gestiona las claves de descifrado de manera distribuida, asegurando que nadie (ni siquiera los operadores de los nodos) pueda ver los datos en claro sin autorización.
+\end{itemize}
+
+\subsection{El Smart Contract}
+
+El núcleo de FHElect es un contrato inteligente escrito en Solidity utilizando la librería \texttt{FHE.sol} de Zama. El contrato gestiona el estado de la votación, almacena los votos cifrados y realiza el conteo sin revelar los votos individuales.
+
+\subsubsection{Estructura de Datos}
+El contrato mantiene un contador global cifrado (\texttt{euint32}) y un mapeo del voto cifrado de cada votante:
+
+\begin{lstlisting}[]
+euint32 private encryptedCount;
+mapping(address => ebool) private encryptedVotes;
+\end{lstlisting}
+
+\subsubsection{Proceso de Votación}
+Cuando un usuario emite un voto, este se cifra en el lado del cliente (client-side) junto con una prueba de conocimiento cero (ZKPoK) para asegurar que el cifrado es válido. El contrato recibe este voto cifrado (\texttt{externalEbool}) y lo procesa:
+
+\begin{lstlisting}[]
+function vote(externalEbool externalYesOrNo, bytes calldata proof) external {
+    ebool currentVote = FHE.fromExternal(externalYesOrNo, proof);
+    // ... logica de actualizacion ...
+    addToCount(eboolToOneOrZero(currentVote));
+}
+\end{lstlisting}
+
+Para sumar el voto al contador total, utilizamos operaciones homomórficas. Dado que el voto es un booleano cifrado (\texttt{ebool}), primero lo convertimos a un entero 0 o 1 usando \texttt{FHE.select}:
+
+\begin{lstlisting}[]
+function eboolToOneOrZero(ebool boolValue) private returns (euint32) {
+    return FHE.select(boolValue, encryptedConstantOne, encryptedConstantZero);
+}
+\end{lstlisting}
+
+\subsubsection{Verificabilidad y Privacidad}
+Para garantizar la verificabilidad individual, el contrato otorga permisos explícitos al votante para que pueda descifrar su propio voto almacenado, utilizando Listas de Control de Acceso (ACL):
+
+\begin{lstlisting}[]
+FHE.allow(currentVote, msg.sender);
+\end{lstlisting}
+
+De esta forma, el votante puede consultar \texttt{getMyVote()} y verificar que el sistema guardó correctamente su intención, sin que nadie más pueda acceder a ese dato.
+
+Al finalizar la votación, el dueño del contrato solicita el descifrado del conteo total. Este proceso es asincrónico y requiere la colaboración de la red de KMS para revelar únicamente el resultado final agregados.
+
+\section{Vulnerabilidades y Desafíos}
+
+\subsection{Coerción y Compra de Votos}
+Una vulnerabilidad importante en los sistemas de votación electrónica es la coerción. Si un votante puede probar cómo votó (por ejemplo, mostrando su pantalla), un atacante podría comprar su voto.
+
+En FHElect, mitigamos esto permitiendo que los usuarios voten múltiples veces, donde solo el último voto es válido. Si un votante es coaccionado, puede emitir el voto que pide el atacante, recibir su "pago", y luego emitir su voto real, sobrescribiendo el anterior. El contrato maneja esto restando el voto anterior del total antes de sumar el nuevo:
+
+\begin{lstlisting}[]
+if (hasVotedBefore) {
+    ebool previousVote = encryptedVotes[msg.sender];
+    subtractFromCount(eboolToOneOrZero(previousVote));
+}
+addToCount(eboolToOneOrZero(currentVote));
+\end{lstlisting}
+
+\subsection{Análisis de Tráfico}
+
+Aunque el contenido del voto es privado, el hecho de que una dirección emita una transacción es información pública en la blockchain. Esto introduce dos vulnerabilidades principales: \textbf{Identificación del votante}: Si la dirección está vinculada a una identidad del mundo real, se sabe quién votó y cuándo; y \textbf{Detección de voto duplicado}: Un atacante que ha coaccionado a un votante puede monitorear si este envía una segunda transacción para anular el voto coaccionado.
+
+Para mitigar estos riesgos, proponemos dos estrategias complementarias:
+
+\subsubsection{Relayers y Mixnets}
+Para romper el vínculo entre la identidad del votante y la transacción de voto, se pueden utilizar intermediarios conocidos como \textbf{Relayers}. En lugar de que el votante envíe la transacción directamente, firma un mensaje fuera de la cadena (off-chain) utilizando estándares como EIP-712. Este mensaje firmado es enviado al relayer, quien lo empaqueta en una transacción y paga el gas necesario para enviarlo a la blockchain.
+
+Sin embargo, si se utiliza un solo relayer centralizado, este podría censurar transacciones o colaborar con un atacante. Para descentralizar esto y ocultar el origen de la comunicación (dirección IP), se podrían usar \textbf{Mixnets} (como Nym o Tor) o \textbf{Ring Signatures} (como en Monero). Estas tecnologías permiten que el mensaje llegue al relayer de manera anónima, dificultando rastrear el origen físico del voto.
+
+\subsubsection{Inyección de Ruido (Dummy Votes)}
+Para evitar que un atacante sepa si un usuario está votando realmente o simplemente interactuando con el contrato para confundir, se puede implementar la inyección de tráfico falso o "ruido".
+
+El cliente puede enviar transacciones aleatorias que, desde el punto de vista de un observador externo (incluyendo al atacante), son indistinguibles de un voto real en términos de firma de la función llamada, costo de gas y tamaño de los datos cifrados.
+Una idea de implementación es la siguiente: el usuario envía un flag booleano cifrado (\texttt{ebool isDummy}) junto con su voto. El contrato podría utilizar este flag para condicionalmente sumar 0 al conteo total si \texttt{isDummy} es verdadero, o sumar el voto si es falso.
+De esta manera, el estado interno del conteo no cambia, pero un observador no puede distinguir entre un voto real y uno dummy, protegiendo así al votante contra el análisis de tráfico temporal.
+
+\section{Extensiones}
+
+El diseño de FHElect es extensible a esquemas de votación más complejos.
+
+\subsection{Voto con Múltiples Candidatos}
+Para elecciones con más de dos opciones, en lugar de un booleano, el usuario envía el ID del candidato cifrado (\texttt{encryptedCandidateId}). El contrato itera sobre todos los candidatos y suma 1 al contador del candidato cuyo ID coincide con el voto.
+
+\subsection{Voto Rankeado}
+Implementamos también un sistema de voto preferencial, donde el votante selecciona $k$ candidatos y se les asignan puntajes decrecientes. El contrato recibe un array de votos cifrados y suma el puntaje correspondiente a cada candidato seleccionado, todo de manera cifrada y verificable.
+
+\section{Conclusiones}
+
+Este trabajo muestra que la tecnología de Fully Homomorphic Encryption (FHE) es una solución viable y potente para resolver el trilema de privacidad, integridad y verificabilidad en los sistemas de votación electrónica. A través de FHElect, logramos un sistema donde:
+\begin{enumerate}
+    \item La privacidad es absoluta frente a observadores y administradores.
+    \item El conteo es íntegro y verificable universalmente.
+    \item Cada votante puede auditar su propio voto.
+\end{enumerate}
+
+Si bien existen desafíos en términos de rendimiento y resistencia a la coerción, las soluciones propuestas y la rápida evolución de la criptografía homomórfica sugieren un futuro prometedor para la democracia digital descentralizada.
 
 \begin{thebibliography}{9}
 
