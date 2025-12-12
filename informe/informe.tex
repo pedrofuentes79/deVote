@@ -226,7 +226,7 @@ Para evitar que un atacante sepa si un usuario está votando realmente o simplem
 
 El cliente puede enviar transacciones aleatorias que, desde el punto de vista de un observador externo (incluyendo al atacante), son indistinguibles de un voto real en términos de firma de la función llamada, costo de gas y tamaño de los datos cifrados.
 Una idea de implementación es la siguiente: el usuario envía un flag booleano cifrado (\texttt{ebool isDummy}) junto con su voto. El contrato podría utilizar este flag para condicionalmente sumar 0 al conteo total si \texttt{isDummy} es verdadero, o sumar el voto si es falso.
-De esta manera, el estado interno del conteo no cambia, pero un observador no puede distinguir entre un voto real y uno dummy, protegiendo así al votante contra el análisis de tráfico temporal.
+De esta manera, el estado interno del conteo no cambia, pero un observador no puede distinguir entre un voto real y uno dummy, protegiendo así al votante contra el análisis de tráfico temporal. Es importante que se haga una suma con 0 al contador total para que las operaciones no difieran en el gas.
 
 \section{Extensiones}
 
@@ -247,7 +247,7 @@ Este trabajo muestra que la tecnología de Fully Homomorphic Encryption (FHE) es
     \item Cada votante puede auditar su propio voto.
 \end{enumerate}
 
-Si bien existen desafíos en términos de rendimiento y resistencia a la coerción, las soluciones propuestas y la rápida evolución de la criptografía homomórfica sugieren un futuro prometedor para la democracia digital descentralizada.
+Si bien existen limitaciones en términos de resistencia a la coerción (entre otras vulnerabilidades), las soluciones propuestas y la las mejoras en rendimiento y seguridad de los sistemas de criptografía homomórfica sugieren un futuro prometedor para sistemas de votación descentralizados.
 
 \begin{thebibliography}{9}
 
@@ -258,9 +258,12 @@ Si bien existen desafíos en términos de rendimiento y resistencia a la coerci�
 \bibitem{fhevm_whitepaper}
 \href{https://github.com/zama-ai/fhevm/blob/main/fhevm-whitepaper.pdf }{Zama AI. \textit{FHEVM Whitepaper}.}
 
+\bibitem{towards_secure_electronic_voting}
+\href{https://www.researchgate.net/publication/391686424_Towards_Secure_Electronic_Voting_a_Survey_on_E-Voting_Systems_and_Attacks}{
+    \textit{Towards Secure Electronic Voting: a Survey on E-Voting Systems and Attacks}. ResearchGate.}
+
 \bibitem{lanacion}
 \href{https://www.lanacion.com.ar/politica/el-costo-de-la-eleccion-sera-de-por-lo-menos-de-230-mil-millones-nid18102025/}{La Nación. \textit{El costo de la elección será de por lo menos de 230 mil millones}. 18/10/2025.}
-
 
 \end{thebibliography}
 
