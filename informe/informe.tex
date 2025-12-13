@@ -54,6 +54,20 @@
 }
 \lstset{style=mystyle}
 
+% Definición del lenguaje Solidity
+\lstdefinelanguage{Solidity}{
+    keywords={pragma, solidity, contract, function, modifier, event, struct, enum, mapping, address, uint, uint8, uint16, uint32, uint64, uint128, uint256, int, int8, int16, int32, int64, int128, int256, bool, string, bytes, bytes1, bytes2, bytes4, bytes8, bytes16, bytes32, external, public, private, internal, view, pure, payable, returns, return, require, revert, assert, if, else, for, while, do, break, continue, new, delete, this, super, import, library, interface, abstract, is, memory, storage, calldata, emit, constructor, indexed, anonymous, constant, immutable, override, virtual},
+    keywordstyle=\color{magenta}\bfseries,
+    ndkeywords={euint32, ebool, externalEuint32, externalEbool, FHE, SepoliaConfig},
+    ndkeywordstyle=\color{blue}\bfseries,
+    sensitive=true,
+    comment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    string=[b]",
+    string=[b]',
+    morestring=[b]`
+}
+
 % --- Hipervínculos ---
 \usepackage{hyperref}
 \hypersetup{
@@ -249,6 +263,7 @@ Este trabajo muestra que la tecnología de Fully Homomorphic Encryption (FHE) es
 
 Si bien existen limitaciones en términos de resistencia a la coerción (entre otras vulnerabilidades), las soluciones propuestas y la las mejoras en rendimiento y seguridad de los sistemas de criptografía homomórfica sugieren un futuro prometedor para sistemas de votación descentralizados.
 
+\newpage
 \begin{thebibliography}{9}
 
 \bibitem{mit_paper}
@@ -266,5 +281,367 @@ Si bien existen limitaciones en términos de resistencia a la coerción (entre o
 \href{https://www.lanacion.com.ar/politica/el-costo-de-la-eleccion-sera-de-por-lo-menos-de-230-mil-millones-nid18102025/}{La Nación. \textit{El costo de la elección será de por lo menos de 230 mil millones}. 18/10/2025.}
 
 \end{thebibliography}
+
+\newpage
+\appendix
+
+\section{Código de Smart Contracts}
+
+\subsection{FHEVoter.sol}
+
+\begin{lstlisting}[language=Solidity, caption=FHEVoter.sol]
+// SPDX-License-Identifier: BSD-3-Clause-Clear
+pragma solidity ^0.8.24;
+
+import {FHE, euint32, externalEuint32, ebool, externalEbool} from "@fhevm/solidity/lib/FHE.sol";
+import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
+
+// inherits from SepoliaConfig to enable fhEVM support
+contract FHEVoter is SepoliaConfig {
+    struct VoterState {
+        uint256 lastElectionId;
+        ebool encryptedVote;
+    }
+
+    euint32 private encryptedCount;
+    euint32 private encryptedConstantOne;
+    euint32 private encryptedConstantZero;
+    mapping(address => VoterState) private voterStates;
+
+    uint32 private clearCount; // =0 by default. It is only used when the owner calls "decryptCount"
+    address private owner;
+    bool private isVotingOpen;
+    uint256 private electionId;
+
+    event CountDecrypted(uint32 count);
+    event VotingStarted();
+    event VotingClosed();
+
+    constructor() {
+        owner = msg.sender;
+        encryptedConstantOne = FHE.asEuint32(1);
+        encryptedConstantZero = FHE.asEuint32(0);
+        FHE.allowThis(encryptedConstantOne);
+        FHE.allowThis(encryptedConstantZero);
+        isVotingOpen = true;
+        electionId = 1;
+        emit VotingStarted();
+    }
+
+    modifier onlyWhenVotingOpen() {
+        require(isVotingOpen, "Voting is not open");
+        _;
+    }
+
+    modifier onlyWhenVotingClosed() {
+        require(!isVotingOpen, "Voting is open");
+        _;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+
+    function closeVoting() external onlyWhenVotingOpen onlyOwner {
+        isVotingOpen = false;
+        emit VotingClosed();
+    }
+
+    function startVoting() external onlyOwner {
+        isVotingOpen = true;
+        encryptedCount = FHE.asEuint32(0);
+        FHE.allowThis(encryptedCount);
+        clearCount = 0;
+        electionId++;
+
+        emit VotingStarted();
+    }
+
+    function eboolToOneOrZero(ebool boolValue) private returns (euint32) {
+        return FHE.select(boolValue, encryptedConstantOne, encryptedConstantZero);
+    }
+
+    function subtractFromCount(euint32 valueToSubtract) private {
+        encryptedCount = FHE.sub(encryptedCount, valueToSubtract);
+        FHE.allowThis(encryptedCount);
+    }
+
+    function addToCount(euint32 valueToAdd) private {
+        encryptedCount = FHE.add(encryptedCount, valueToAdd);
+        FHE.allowThis(encryptedCount);
+    }
+
+    function setVote(ebool currentVote, address voter) private {
+        voterStates[voter] = VoterState(electionId, currentVote);
+        FHE.allow(currentVote, voter);
+        FHE.allowThis(currentVote);
+    }
+
+    // using a boolean allows us to ensure what we add is always 0 or 1
+    function vote(externalEbool externalYesOrNo, bytes calldata proof) external onlyWhenVotingOpen {
+        ebool currentVote = FHE.fromExternal(externalYesOrNo, proof);
+        VoterState memory state = voterStates[msg.sender];
+
+        euint32 valueToAdd;
+        if (state.lastElectionId != electionId) {
+            valueToAdd = eboolToOneOrZero(currentVote);
+            // state update happens in setVote
+        } else {
+            // subtract the previous vote from the total, and then add the new one
+            ebool previousVote = state.encryptedVote;
+            euint32 valueToSubtract = eboolToOneOrZero(previousVote);
+            subtractFromCount(valueToSubtract);
+
+            valueToAdd = eboolToOneOrZero(currentVote);
+        }
+        addToCount(valueToAdd);
+
+        setVote(currentVote, msg.sender);
+    }
+
+    function getCount() external view onlyWhenVotingClosed returns (euint32) {
+        return encryptedCount;
+    }
+
+    function getMyVote() external view returns (ebool) {
+        VoterState memory state = voterStates[msg.sender];
+        require(state.lastElectionId == electionId, "You have not voted yet");
+        return state.encryptedVote;
+    }
+
+    function requestDecryption() external onlyWhenVotingClosed onlyOwner {
+        bytes32[] memory cypherTexts = new bytes32[](1);
+        cypherTexts[0] = FHE.toBytes32(encryptedCount);
+        FHE.requestDecryption(
+            // the list of encrypted values we want to publc decrypt
+            cypherTexts,
+            // the function selector the FHEVM backend will callback with the clear values as arguments
+            this.callbackDecryptSingleUint32.selector
+        );
+    }
+
+    function getDecryptedCount() external view onlyWhenVotingClosed returns (uint32) {
+        return clearCount;
+    }
+
+    function callbackDecryptSingleUint32(
+        uint256 requestID,
+        bytes memory cleartexts,
+        bytes memory decryptionProof
+    ) external {
+        // The `cleartexts` argument is an ABI encoding of the decrypted values associated to the
+        // handles (using `abi.encode`).
+        // ===============================
+        //      SECURITY WARNING!        //
+        // ===============================
+        // Must call `FHE.checkSignatures(...)` here!
+        //            ------------------------
+        // This callback must only be called by the authorized FHEVM backend.
+        // To enforce this, the contract author MUST verify the authenticity of the caller
+        // by using the `FHE.checkSignatures` helper. This ensures that the provided signatures
+        // match the expected FHEVM backend and prevents unauthorized or malicious calls.
+        //
+        // Failing to perform this verification allows anyone to invoke this function with
+        // forged values, potentially compromising contract integrity.
+        //
+        // The responsibility for signature validation lies entirely with the contract author.
+        //
+        // The signatures are included in the `decryptionProof` parameter.
+        //
+        FHE.checkSignatures(requestID, cleartexts, decryptionProof);
+
+        uint32 decryptedInput = abi.decode(cleartexts, (uint32));
+        clearCount = decryptedInput;
+
+        emit CountDecrypted(clearCount);
+    }
+}
+\end{lstlisting}
+
+\subsection{FHERankedVoter.sol}
+
+\begin{lstlisting}[language=Solidity, caption=FHERankedVoter.sol]
+// SPDX-License-Identifier: BSD-3-Clause-Clear
+pragma solidity ^0.8.24;
+
+import {FHE, euint32, externalEuint32, ebool, externalEbool} from "@fhevm/solidity/lib/FHE.sol";
+import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
+
+// IDEA: to allow for a voting scheme that has multiple candidates (and only one vote per candidate) we can receive
+// an array of booleans (and a proof that only one of them is true? or can we handle this internally with some FHE operations?)
+// such as `select`
+// https://claude.ai/share/d065d579-5b33-4c03-a9e7-98586997c237
+// this has some ideas to implement ZK proofs for the multiple votes
+// we may need to use zk proofs in order to verify that the user provided exactly one true value in the array of booleans
+// what we can do with FHE is get an ebool that (when decrypted) is true <=> the sum of all user votes is exactly k
+// where k is the number of candidates someone can vote (think ranked voting systems...)
+// however, we would need to decrypt that number! And that is not very secure... it would give us info about exactly how many votes
+// someone made.
+// ZK proofs are better. They would allow us to verify that the user provided <= k true values in the array of booleans.
+// without us knowing the exact number of true values in their array
+
+// inherits from SepoliaConfig to enable fhEVM support
+contract FHEVoter is SepoliaConfig {
+    struct VoterState {
+        uint256 lastElectionId;
+        ebool encryptedVote;
+    }
+
+    euint32 private encryptedCount;
+    euint32 private encryptedConstantOne;
+    euint32 private encryptedConstantZero;
+    mapping(address => VoterState) private voterStates;
+
+    uint32 private clearCount; // =0 by default. It is only used when the owner calls "decryptCount"
+    address private owner;
+    bool private isVotingOpen;
+    uint256 private electionId;
+
+    event CountDecrypted(uint32 count);
+    event VotingStarted();
+    event VotingClosed();
+
+    constructor() {
+        owner = msg.sender;
+        encryptedConstantOne = FHE.asEuint32(1);
+        encryptedConstantZero = FHE.asEuint32(0);
+        FHE.allowThis(encryptedConstantOne);
+        FHE.allowThis(encryptedConstantZero);
+        isVotingOpen = true;
+        electionId = 1;
+        emit VotingStarted();
+    }
+
+    modifier onlyWhenVotingOpen() {
+        require(isVotingOpen, "Voting is not open");
+        _;
+    }
+
+    modifier onlyWhenVotingClosed() {
+        require(!isVotingOpen, "Voting is open");
+        _;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+
+    function closeVoting() external onlyWhenVotingOpen onlyOwner {
+        isVotingOpen = false;
+        emit VotingClosed();
+    }
+
+    function startVoting() external onlyOwner {
+        isVotingOpen = true;
+        encryptedCount = FHE.asEuint32(0);
+        FHE.allowThis(encryptedCount);
+        clearCount = 0;
+        electionId++;
+
+        emit VotingStarted();
+    }
+
+    function eboolToOneOrZero(ebool boolValue) private returns (euint32) {
+        return FHE.select(boolValue, encryptedConstantOne, encryptedConstantZero);
+    }
+
+    function subtractFromCount(euint32 valueToSubtract) private {
+        encryptedCount = FHE.sub(encryptedCount, valueToSubtract);
+        FHE.allowThis(encryptedCount);
+    }
+
+    function addToCount(euint32 valueToAdd) private {
+        encryptedCount = FHE.add(encryptedCount, valueToAdd);
+        FHE.allowThis(encryptedCount);
+    }
+
+    function setVote(ebool currentVote, address voter) private {
+        voterStates[voter] = VoterState(electionId, currentVote);
+        FHE.allow(currentVote, voter);
+        FHE.allowThis(currentVote);
+    }
+
+    // using a boolean allows us to ensure what we add is always 0 or 1
+    function vote(externalEbool externalYesOrNo, bytes calldata proof) external onlyWhenVotingOpen {
+        ebool currentVote = FHE.fromExternal(externalYesOrNo, proof);
+        VoterState memory state = voterStates[msg.sender];
+
+        euint32 valueToAdd;
+        if (state.lastElectionId != electionId) {
+            valueToAdd = eboolToOneOrZero(currentVote);
+            // state update happens in setVote
+        } else {
+            // subtract the previous vote from the total, and then add the new one
+            ebool previousVote = state.encryptedVote;
+            euint32 valueToSubtract = eboolToOneOrZero(previousVote);
+            subtractFromCount(valueToSubtract);
+
+            valueToAdd = eboolToOneOrZero(currentVote);
+        }
+        addToCount(valueToAdd);
+
+        setVote(currentVote, msg.sender);
+    }
+
+    function getCount() external view onlyWhenVotingClosed returns (euint32) {
+        return encryptedCount;
+    }
+
+    function getMyVote() external view returns (ebool) {
+        VoterState memory state = voterStates[msg.sender];
+        require(state.lastElectionId == electionId, "You have not voted yet");
+        return state.encryptedVote;
+    }
+
+    function requestDecryption() external onlyWhenVotingClosed onlyOwner {
+        bytes32[] memory cypherTexts = new bytes32[](1);
+        cypherTexts[0] = FHE.toBytes32(encryptedCount);
+        FHE.requestDecryption(
+            // the list of encrypted values we want to publicly decrypt
+            cypherTexts,
+            // the function selector the FHEVM backend will callback with the clear values as arguments
+            this.callbackDecryptSingleUint32.selector
+        );
+    }
+
+    function getDecryptedCount() external view onlyWhenVotingClosed returns (uint32) {
+        return clearCount;
+    }
+
+    function callbackDecryptSingleUint32(
+        uint256 requestID,
+        bytes memory cleartexts,
+        bytes memory decryptionProof
+    ) external {
+        // The `cleartexts` argument is an ABI encoding of the decrypted values associated to the
+        // handles (using `abi.encode`).
+        // ===============================
+        //      SECURITY WARNING!        //
+        // ===============================
+        // Must call `FHE.checkSignatures(...)` here!
+        //            ------------------------
+        // This callback must only be called by the authorized FHEVM backend.
+        // To enforce this, the contract author MUST verify the authenticity of the caller
+        // by using the `FHE.checkSignatures` helper. This ensures that the provided signatures
+        // match the expected FHEVM backend and prevents unauthorized or malicious calls.
+        //
+        // Failing to perform this verification allows anyone to invoke this function with
+        // forged values, potentially compromising contract integrity.
+        //
+        // The responsibility for signature validation lies entirely with the contract author.
+        //
+        // The signatures are included in the `decryptionProof` parameter.
+        //
+        FHE.checkSignatures(requestID, cleartexts, decryptionProof);
+
+        uint32 decryptedInput = abi.decode(cleartexts, (uint32));
+        clearCount = decryptedInput;
+
+        emit CountDecrypted(clearCount);
+    }
+}
+\end{lstlisting}
 
 \end{document}

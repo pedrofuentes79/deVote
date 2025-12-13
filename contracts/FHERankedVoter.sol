@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import {FHE, euint32, externalEuint32, ebool, externalEbool} from "@fhevm/solidity/lib/FHE.sol";
 import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 
-// TODO: implement multiple rounds of voting
 
 contract FHERankedVoter is SepoliaConfig {
     struct VoterState {
